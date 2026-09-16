@@ -93,7 +93,7 @@ Services can use explicit restart policies:
 - `on_failure`
 - `always`
 
-Restarts are bounded by a maximum attempt count and exponential backoff ceiling. Switchyard records restart scheduling, restart success/failure, cascade stops, readiness failures, and degraded-session state in the session timeline.
+Restarts are bounded by a maximum attempt count and exponential backoff ceiling. A new user-initiated session start receives a fresh restart budget, while stale restart workers from an earlier stopped run are invalidated. Switchyard records restart scheduling, restart success/failure, cascade stops, readiness failures, and degraded-session state in the session timeline.
 
 ### Preflight
 
@@ -107,7 +107,7 @@ Before a session starts, Switchyard can detect blocking or suspicious conditions
 - ports already listening before startup
 - commands that cannot be resolved on PATH
 
-Blocking failures prevent startup. Warnings remain explicit and can be reviewed before continuing.
+A readiness port that is already listening is a blocking V1 condition because an unrelated process could otherwise create a false READY result. Other blocking failures prevent startup; non-blocking command-resolution warnings remain explicit for review.
 
 ## Why Switchyard exists
 
@@ -124,9 +124,15 @@ It is intentionally local-first:
 - project files are never uploaded by Switchyard
 - inherited secret values are not persisted by Switchyard
 
+## First run
+
+Switchyard does not require setup, sign-in, a server, or a pre-existing state file. Launch it, add a local project, then optionally save run configurations and promote commands into services/workspace sessions. State is created locally under `~/.switchyard` only when there is something to persist.
+
+The V1 automated smoke test exercises an empty first run, project persistence, preflight, service startup/readiness, clean shutdown, and reload without touching the caller's real Switchyard profile.
+
 ## Running from source
 
-Requires Python 3.11+ with Tk available.
+Requires Python 3.10+ with Tk available. CI currently exercises Python 3.10 and 3.12 on both Ubuntu and Windows.
 
 ```bash
 python switchyard_desktop.pyw
@@ -136,6 +142,7 @@ Tests:
 
 ```bash
 python -m unittest discover -s tests -v
+python tools/v1_smoke.py
 ```
 
 ## Windows build
@@ -144,7 +151,7 @@ python -m unittest discover -s tests -v
 ./build-windows.ps1
 ```
 
-The repository CI tests supported Python versions on Ubuntu and Windows and performs a packaged Windows build check. Tagged release workflows can publish the executable and checksum.
+The repository CI tests supported Python versions on Ubuntu and Windows, performs a packaged Windows build, and launches the packaged executable in `--smoke-test` mode. Tagged release workflows repeat the V1 smoke gates before publishing the executable and checksum.
 
 ## State
 
@@ -160,7 +167,7 @@ Runtime profiles and restart policies are stored separately at:
 ~/.switchyard/runtime.json
 ```
 
-The workspace state format is versioned and continues to load older V1/V2 files. Environment profiles deliberately store inherited **key names**, not inherited secret values.
+The workspace state format is versioned and continues to load older V1/V2 files. Current files are written atomically with rotating validated backups; corrupt or unsupported future-version files are preserved rather than silently overwritten. Environment profiles deliberately store inherited **key names**, not inherited secret values.
 
 ## Safety model
 
@@ -168,11 +175,11 @@ Switchyard runs commands you explicitly save, import, promote, or attach to serv
 
 See [SECURITY.md](SECURITY.md) for security reporting and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the internal model.
 
-## Roadmap
+## V1 release hardening
 
-Phases 1–4 establish the command center, workspace intelligence, service graph, sessions, environment profiles, preflight, and resilient runtime. Next comes a genuinely visual workspace topology plus recovery and handoff features.
+The V1 release candidate is gated by destructive-state recovery, process-tree shutdown, bounded restart behavior, occupied-port fail-closed checks, concurrent-write safety, first-run smoke tests, full-module compilation, and a packaged executable launch probe.
 
-See [docs/ROADMAP.md](docs/ROADMAP.md).
+See [docs/V1_RELEASE_CHECKLIST.md](docs/V1_RELEASE_CHECKLIST.md) for the final automated and manual release gates. Longer-term work remains tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License
 
