@@ -9,7 +9,9 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '${{ matrix.python }}' }
       - run: python -m unittest discover -s tests -v
-      - run: python -m py_compile switchyard_core.py switchyard_desktop.pyw
+      - name: Compile all Switchyard modules
+        run: >-
+          python -c "from pathlib import Path; import py_compile; files=sorted(Path('.').glob('switchyard_*.py'))+[Path('switchyard_desktop.pyw')]; [py_compile.compile(str(p), doraise=True) for p in files]; print(f'compiled {len(files)} modules')"
   windows-build:
     runs-on: windows-latest
     steps:
