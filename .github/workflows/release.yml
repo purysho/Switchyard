@@ -11,11 +11,18 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: python -m unittest discover -s tests -v
+      - name: V1 first-run smoke test
+        run: python tools/v1_smoke.py
       - name: Compile all Switchyard modules
         run: >-
           python -c "from pathlib import Path; import py_compile; files=sorted(Path('.').glob('switchyard_*.py'))+[Path('switchyard_desktop.pyw')]; [py_compile.compile(str(p), doraise=True) for p in files]; print(f'compiled {len(files)} modules')"
       - shell: powershell
         run: .\build-windows.ps1
+      - name: Smoke-test packaged executable
+        shell: powershell
+        run: |
+          $p = Start-Process -FilePath .\dist\Switchyard.exe -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit $p.ExitCode }
       - shell: powershell
         run: '$h=(Get-FileHash dist\Switchyard.exe -Algorithm SHA256).Hash.ToLower(); "$h  Switchyard.exe" | Out-File -Encoding ascii dist\Switchyard.exe.sha256'
       - uses: softprops/action-gh-release@v2
