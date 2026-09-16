@@ -1,20 +1,25 @@
 # Changelog
 
-## Unreleased — Phase 2: Workspace Intelligence
+## Unreleased
 
-### Added
-- Project stack/framework detection from common manifests and repository evidence.
-- Suggested run configurations derived from detected project tasks.
-- Expanded Git snapshot: dirty count, upstream, ahead/behind, latest commit and origin remote.
-- Project health checks for paths, Git state, command availability and likely development ports.
-- Persistent run history with PID, timestamps, exit status and duration.
-- Project tags, pin state and last-opened metadata.
-- Versioned workspace state with backwards-compatible loading of V1 state files.
+### Phase 3 — Service Graph + Workspace Sessions
 
-### Improved
-- Managed process logging is bounded to avoid unbounded memory growth.
-- Project snapshots ignore additional generated/build directories.
+- Added version 3 workspace state with services, sessions, readiness rules, and session event history.
+- Added cross-project service definitions with dependencies and explicit failure policies.
+- Added deterministic dependency expansion and topological startup ordering.
+- Added process, TCP-port, and delay readiness gates with timeouts.
+- Added `SessionController` orchestration with dependency-aware startup and reverse-order shutdown.
+- Added dependent-service cascade stops after unexpected failures.
+- Added persistent session timeline events.
+- Added Services and Sessions desktop tabs with graph validation, service editing, session editing, start/stop controls, topology inspection, and live state.
+- Added promotion from run configuration to service.
+- Expanded the Live Processes view to include session-managed services.
+- Added Phase 3 tests for migration, graph ordering, cycle rejection, readiness, and full dependency startup.
+
+### Phase 2 — Workspace Intelligence
+
+- Added project stack detection, Git intelligence, health checks, task suggestions, persisted run history, tags, pinning, and richer run configuration controls.
 
 ## 0.1.0
-- Initial local developer workspace V1.
-- Project registry, notes, run configurations, managed processes, live logs and local-port visibility.
+
+- Initial local developer workspace command center.
