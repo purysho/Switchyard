@@ -10,14 +10,57 @@ from switchyard_persistence import RecoveryNotice, resilient_load_json, resilien
 _STATE_RECOVERY_NOTICE: RecoveryNotice | None = None
 
 
+def _require_string_list(value, label: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f'{label} must be a list of strings')
+
+
+def _require_object_list(value, label: str) -> list[dict]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ValueError(f'{label} must be a list of objects')
+    return value
+
+
+def _require_mapping(value, label: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        raise ValueError(f'{label} must be an object')
+
+
+def _validate_nested_state(data: dict) -> None:
+    for project in _require_object_list(data.get('projects', []), 'projects'):
+        if not isinstance(project.get('name'), str) or not isinstance(project.get('path'), str):
+            raise ValueError('project name and path must be strings')
+        _require_string_list(project.get('tags', []), 'project.tags')
+        for config in _require_object_list(project.get('run_configs', []), 'project.run_configs'):
+            if not isinstance(config.get('name'), str) or not isinstance(config.get('command'), str):
+                raise ValueError('run configuration name and command must be strings')
+            _require_mapping(config.get('env', {}), 'run configuration env')
+
+    for service in _require_object_list(data.get('services', []), 'services'):
+        _require_string_list(service.get('depends_on', []), 'service.depends_on')
+        _require_mapping(service.get('env', {}), 'service.env')
+        readiness = service.get('readiness')
+        if readiness is not None and not isinstance(readiness, dict):
+            raise ValueError('service.readiness must be an object or null')
+
+    for session in _require_object_list(data.get('sessions', []), 'sessions'):
+        _require_string_list(session.get('service_ids', []), 'session.service_ids')
+
+    _require_object_list(data.get('run_history', []), 'run_history')
+    _require_object_list(data.get('session_history', []), 'session_history')
+
+
 def _decode_state(data: dict) -> WorkspaceState:
+    _validate_nested_state(data)
+
     def rows(key: str) -> list[dict]:
-        value = data.get(key, [])
-        if value is None:
-            return []
-        if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
-            raise ValueError(f'{key} must be a list of objects')
-        return value
+        return _require_object_list(data.get(key, []), key)
 
     selected = data.get('selected_project')
     if selected is not None and not isinstance(selected, str):
