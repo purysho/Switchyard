@@ -8,6 +8,8 @@ import json
 import re
 import time
 
+from switchyard_persistence import atomic_write_text
+
 
 @dataclass(frozen=True)
 class LogEntry:
@@ -84,17 +86,16 @@ class LogStore:
 
     def export_text(self, path: str | Path, service_id: str | None = None, text: str = '', levels: Iterable[str] | None = None) -> Path:
         output = Path(path)
-        output.parent.mkdir(parents=True, exist_ok=True)
         rows = self.query(service_id, text, levels)
         rendered = []
         for item in rows:
             stamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(item.timestamp))
             rendered.append(f'[{stamp}] [{item.level}] [{item.project_name}/{item.service_name}] {item.line}')
-        output.write_text('\n'.join(rendered) + ('\n' if rendered else ''), encoding='utf-8')
+        atomic_write_text(output, '\n'.join(rendered) + ('\n' if rendered else ''))
         return output
 
     def export_json(self, path: str | Path, service_id: str | None = None) -> Path:
         output = Path(path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps([asdict(row) for row in self.query(service_id)], indent=2), encoding='utf-8')
+        rendered = json.dumps([asdict(row) for row in self.query(service_id)], indent=2, ensure_ascii=False) + '\n'
+        atomic_write_text(output, rendered)
         return output
