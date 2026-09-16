@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from switchyard_phase5 import *
 from switchyard_integrations import TOOLS, discover_tool, handoff_args, launch_tool, open_tool_repository, readiness_url
+from switchyard_topology import acknowledge_recovery_journal
 
 
 class SwitchyardPhase6App(SwitchyardPhase5App):
@@ -114,6 +115,39 @@ class SwitchyardPhase6App(SwitchyardPhase5App):
         pid = self._service_pid(service.id)
         if not pid: messagebox.showinfo('Switchyard', f'{service.name} is not currently running under Switchyard.'); return
         self._launch_or_offer('pulse', handoff_args('pulse', pid=pid))
+
+    def _offer_crash_recovery(self):
+        """Offer recovery once and explicitly acknowledge terminal user choices.
+
+        Cancel deliberately keeps pending recovery armed so a subsequent crash cannot
+        erase unresolved orphan-process information. Choosing to forget or restore
+        acknowledges the old marker before normal operation continues.
+        """
+        marker = self._previous_recovery
+        if not marker or not marker.get('active_session_id'):
+            return
+        session = next((s for s in self.state.sessions if s.id == marker.get('active_session_id')), None)
+        rows = recovery_processes(marker); alive = [row for row in rows if row.alive]
+        label = marker.get('active_session_name') or 'previous session'
+        if not session:
+            messagebox.showwarning('Switchyard recovery', f'Switchyard detected an unclean previous run for {label}, but that session no longer exists. The recovery marker will be forgotten.')
+            acknowledge_recovery_journal(); self._previous_recovery = None
+            return
+        if alive:
+            choice = messagebox.askyesnocancel('Switchyard recovery', f'The previous run ended while “{label}” was active.\n\n{len(alive)} recorded process(es) are still alive.\n\nYes — stop those orphan processes and restart the session\nNo — leave them alone and forget recovery\nCancel — leave them alone and inspect the workspace')
+            if choice is True:
+                failed = [row.pid for row in alive if not terminate_pid_tree(row.pid)]
+                if failed:
+                    messagebox.showerror('Switchyard recovery', 'Could not stop PID(s): ' + ', '.join(map(str, failed))); return
+                acknowledge_recovery_journal(); self._previous_recovery = None
+                self._select_and_start_recovery_session(session)
+            elif choice is False:
+                acknowledge_recovery_journal(); self._previous_recovery = None
+            return
+        restore = messagebox.askyesno('Switchyard recovery', f'The previous run ended while “{label}” was active, but no recorded process is still running.\n\nRestore that session now?')
+        acknowledge_recovery_journal(); self._previous_recovery = None
+        if restore:
+            self._select_and_start_recovery_session(session)
 
     def refresh_projects(self, select=None):
         super().refresh_projects(select)
