@@ -79,6 +79,10 @@ class SwitchyardTests(unittest.TestCase):
             ok, detail = wait_for_readiness(service, managed, poll=.01)
             self.assertTrue(ok, detail)
             managed.stop()
+            for _ in range(100):
+                if managed.returncode is not None: break
+                time.sleep(.01)
+            self.assertIsNotNone(managed.returncode)
 
     def test_session_controller_starts_dependencies(self):
         with tempfile.TemporaryDirectory() as d:
@@ -96,6 +100,10 @@ class SwitchyardTests(unittest.TestCase):
             kinds = [e.kind for e in state.session_history]
             self.assertIn('session-ready', kinds)
             controller.stop()
+            for _ in range(100):
+                if not controller.running: break
+                time.sleep(.01)
+            self.assertFalse(controller.running)
 
 
 if __name__ == '__main__':
