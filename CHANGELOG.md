@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Phase 5 — Visual Topology + Recovery
+
+- Added a dedicated live topology canvas with deterministic dependency layout and runtime status overlays.
+- Added visual port-conflict warnings and service inspection from topology nodes.
+- Added focused per-service log streams with bounded memory, search, level filtering, follow-tail, clear, and export controls.
+- Added crash-recovery journaling that records active sessions and child PIDs without persisting process handles.
+- Added explicit recovery choices for orphaned processes after an unclean Switchyard exit.
+- Added secret-free session snapshots and one-click restore into the current workspace.
+- Added portable session template export/import with project mapping for different local paths or project names.
+- Added safe Windows PID liveness checks that never signal or terminate the inspected process.
+- Added Phase 5 tests for topology layering, port conflicts, log filtering, templates, snapshots, and recovery markers.
+
 ### Phase 4 — Environments + Resilient Runtime
 
 - Added separate runtime settings storage for environment profiles and service runtime policy.
