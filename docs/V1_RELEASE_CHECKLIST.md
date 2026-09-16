@@ -4,15 +4,18 @@ This checklist is the final gate before creating a V1 tag. Automated items must 
 
 ## Automated gates
 
-- [ ] Unit + hardening tests pass on Ubuntu / Python 3.10.
-- [ ] Unit + hardening tests pass on Ubuntu / Python 3.12.
-- [ ] Unit + hardening tests pass on Windows / Python 3.10.
-- [ ] Unit + hardening tests pass on Windows / Python 3.12.
-- [ ] `python tools/v1_smoke.py` passes on all four test jobs.
-- [ ] Every `switchyard_*.py` module and `switchyard_desktop.pyw` compiles successfully.
-- [ ] `build-windows.ps1` produces `dist/Switchyard.exe`.
-- [ ] The packaged executable exits successfully with `--smoke-test`.
-- [ ] Release workflow generates `Switchyard.exe.sha256` before upload.
+- [x] Unit + hardening tests pass on Ubuntu / Python 3.10.
+- [x] Unit + hardening tests pass on Ubuntu / Python 3.12.
+- [x] Unit + hardening tests pass on Windows / Python 3.10.
+- [x] Unit + hardening tests pass on Windows / Python 3.12.
+- [x] `python tools/v1_smoke.py` passes on all four test jobs.
+- [x] Every `switchyard_*.py` module and `switchyard_desktop.pyw` compiles successfully.
+- [x] `build-windows.ps1` produces `dist/Switchyard.exe`.
+- [x] The packaged executable exits successfully with `--smoke-test`.
+- [x] The CI candidate includes `Switchyard.exe.sha256`, and a second Windows job downloads the uploaded artifact, verifies that checksum, and launches that exact downloaded executable with `--smoke-test`.
+- [x] Release workflow generates `Switchyard.exe.sha256` before upload.
+
+The release-candidate evidence is recorded in [V1_RC_REPORT.md](V1_RC_REPORT.md).
 
 ## Clean first-run test
 
@@ -36,6 +39,8 @@ Use a disposable profile. If an existing `%USERPROFILE%\.switchyard` directory m
 
 ## Failure and destructive-state checks
 
+The same mechanics below have automated destructive coverage. These boxes remain manual because the final release gate also checks how the packaged Windows UI presents and recovers from those states.
+
 - [ ] Configure a service with a missing executable. Confirm failure is explicit and no process remains running.
 - [ ] Remove/rename a registered project directory. Confirm Preflight blocks startup.
 - [ ] Occupy a configured readiness port with another process. Confirm startup is blocked rather than producing a false READY state.
@@ -49,7 +54,7 @@ Use a disposable profile. If an existing `%USERPROFILE%\.switchyard` directory m
 
 ## Persistence and evidence preservation
 
-Perform these only against a disposable profile.
+Perform these only against a disposable profile. The persistence engine has automated destructive coverage for each case; the boxes below remain a packaged-UI confirmation pass.
 
 - [ ] Corrupt `state.json` while valid rotating backups exist. Relaunch and confirm Switchyard recovers the newest valid generation and preserves the damaged file as evidence.
 - [ ] Corrupt the newest backup as well. Confirm recovery falls through to an older valid generation.
@@ -67,14 +72,16 @@ Perform these only against a disposable profile.
 
 ## Packaging and release
 
-- [ ] Download the Windows artifact from the final CI run rather than using a locally built copy.
-- [ ] Launch that artifact on a normal Windows desktop and repeat the clean first-run test.
+- [x] Download the Windows artifact from the final candidate CI run rather than using a locally built copy.
+- [x] Independently compare the downloaded `Switchyard.exe` against the bundled SHA-256 checksum.
+- [ ] Launch that artifact on a normal interactive Windows desktop and repeat the clean first-run test.
 - [ ] Check the executable icon, window title and basic resizing at 100% and 150% display scaling.
-- [ ] Confirm README instructions match the packaged behavior and supported Python versions.
-- [ ] Confirm `SECURITY.md`, `LICENSE`, architecture documentation and changelog are present.
-- [ ] Review the generated SHA-256 checksum against the release executable.
+- [x] Confirm README instructions match the packaged behavior and CI-tested source versions.
+- [x] Confirm `SECURITY.md`, `LICENSE`, architecture documentation and changelog are present.
 - [ ] Create the V1 tag only after every blocking item above is complete.
 
 ## Release decision
 
 A V1 release is blocked by any reproducible data loss, silent schema downgrade, orphan process tree, unbounded restart loop, false readiness, packaged-launch failure, or first-run crash. Cosmetic issues can be documented for a follow-up only when they do not obscure state, failure, recovery or destructive actions.
+
+The automated and downloaded-artifact gates are green. The remaining unchecked items require an interactive Windows desktop because they validate visible UI behavior, display scaling, Task Manager force-kill recovery, and real handoff interaction rather than only the underlying model/runtime behavior.
