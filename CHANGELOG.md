@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Phase 4 — Environments + Resilient Runtime
+
+- Added separate runtime settings storage for environment profiles and service runtime policy.
+- Added environment profiles with stored non-secret variables and inherited OS environment keys.
+- Inherited secret values are resolved only at launch and are never persisted by Switchyard.
+- Added session-level environment assignment plus per-service profile overrides.
+- Added HTTP readiness probes alongside process, TCP-port, and delay readiness gates.
+- Added session preflight checks for graph errors, missing projects, unresolved commands, missing inherited variables, invalid readiness configuration, duplicate claimed ports, and already-open ports.
+- Added parallel startup for independent services in the same dependency layer.
+- Added explicit restart policies: never, on-failure, and always.
+- Added bounded restart attempts with exponential backoff and a configurable backoff ceiling.
+- Added restart, restart-ready, restart-failed, preflight-error, degraded-session, and cascade-stop timeline events.
+- Added a Runtime desktop tab for profiles, service policies, session environment assignment, HTTP readiness, and preflight review.
+- Split the stable Phase 3 desktop shell into a reusable base module so flagship runtime behavior can evolve independently.
+- Added cross-platform runtime tests and retained Windows packaged-build checks.
+
 ### Phase 3 — Service Graph + Workspace Sessions
 
 - Added version 3 workspace state with services, sessions, readiness rules, and session event history.
