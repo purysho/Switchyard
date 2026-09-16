@@ -10,25 +10,50 @@ from switchyard_persistence import RecoveryNotice, resilient_load_json, resilien
 _RUNTIME_RECOVERY_NOTICE: RecoveryNotice | None = None
 
 
+def _require_object_list(value, label: str) -> list[dict]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ValueError(f'{label} must be a list of objects')
+    return value
+
+
+def _require_string_list(value, label: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f'{label} must be a list of strings')
+
+
+def _validate_nested_runtime(data: dict) -> None:
+    for profile in _require_object_list(data.get('profiles', []), 'profiles'):
+        variables = profile.get('variables', {})
+        if not isinstance(variables, dict):
+            raise ValueError('profile.variables must be an object')
+        _require_string_list(profile.get('inherit_keys', []), 'profile.inherit_keys')
+    for policy in _require_object_list(data.get('policies', []), 'policies'):
+        if 'service_id' in policy and not isinstance(policy.get('service_id'), str):
+            raise ValueError('policy.service_id must be a string')
+
+
 def _decode_runtime(data: dict) -> RuntimeSettings:
+    _validate_nested_runtime(data)
+
     def rows(key: str) -> list[dict]:
-        value = data.get(key, [])
-        if value is None:
-            return []
-        if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
-            raise ValueError(f'{key} must be a list of objects')
-        return value
+        return _require_object_list(data.get(key, []), key)
 
     session_profiles = data.get('session_profiles') or {}
     if not isinstance(session_profiles, dict):
         raise ValueError('session_profiles must be an object')
+    if not all(isinstance(key, str) and isinstance(value, str) for key, value in session_profiles.items()):
+        raise ValueError('session_profiles keys and values must be strings')
     last_session_id = data.get('last_session_id')
     if last_session_id is not None and not isinstance(last_session_id, str):
         raise ValueError('last_session_id must be a string or null')
     return _impl.RuntimeSettings(
         profiles=[_impl._profile_from_dict(item) for item in rows('profiles')],
         policies=[_impl._policy_from_dict(item) for item in rows('policies')],
-        session_profiles={str(k): str(v) for k, v in session_profiles.items()},
+        session_profiles=dict(session_profiles),
         last_session_id=last_session_id,
         version=RUNTIME_VERSION,
     )
