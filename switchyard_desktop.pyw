@@ -1,5 +1,5 @@
-from switchyard_phase5 import SwitchyardPhase5App
+from switchyard_phase6 import SwitchyardPhase6App
 
 
 if __name__ == '__main__':
-    SwitchyardPhase5App().mainloop()
+    SwitchyardPhase6App().mainloop()
