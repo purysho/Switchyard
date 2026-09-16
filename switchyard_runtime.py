@@ -12,6 +12,14 @@ _RUNTIME_RECOVERY_NOTICE: RecoveryNotice | None = None
 _BASE_SESSION_PREFLIGHT = _impl.session_preflight
 
 
+def _string_list(value, label: str) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f'{label} must be a list of strings')
+    return list(value)
+
+
 def _decode_runtime(data: dict) -> RuntimeSettings:
     def rows(key: str) -> list[dict]:
         value = data.get(key, [])
@@ -21,6 +29,36 @@ def _decode_runtime(data: dict) -> RuntimeSettings:
             raise ValueError(f'{key} must be a list of objects')
         return value
 
+    def profile(item: dict) -> EnvironmentProfile:
+        variables = item.get('variables') or {}
+        if not isinstance(variables, dict):
+            raise ValueError('profile.variables must be an object')
+        inherit_keys = _string_list(item.get('inherit_keys'), 'profile.inherit_keys')
+        return EnvironmentProfile(
+            id=item.get('id') or _impl.uuid.uuid4().hex,
+            name=str(item.get('name', 'Environment')),
+            variables={str(k): str(v) for k, v in variables.items()},
+            inherit_keys=inherit_keys,
+        )
+
+    def policy(item: dict) -> ServiceRuntimePolicy:
+        service_id = item.get('service_id', '')
+        restart = item.get('restart', 'never')
+        if not isinstance(service_id, str):
+            raise ValueError('policy.service_id must be a string')
+        if restart not in {'never', 'on_failure', 'always'}:
+            raise ValueError('policy.restart must be never, on_failure, or always')
+        profile_id = item.get('profile_id')
+        if profile_id is not None and not isinstance(profile_id, str):
+            raise ValueError('policy.profile_id must be a string or null')
+        try:
+            max_restarts = max(0, int(item.get('max_restarts', 3)))
+            base_backoff = max(0.0, float(item.get('base_backoff', 1.0)))
+            max_backoff = max(0.0, float(item.get('max_backoff', 8.0)))
+        except (TypeError, ValueError) as exc:
+            raise ValueError('policy restart limits/backoff must be numeric') from exc
+        return ServiceRuntimePolicy(service_id, restart, max_restarts, base_backoff, max_backoff, profile_id)
+
     session_profiles = data.get('session_profiles') or {}
     if not isinstance(session_profiles, dict):
         raise ValueError('session_profiles must be an object')
@@ -28,8 +66,8 @@ def _decode_runtime(data: dict) -> RuntimeSettings:
     if last_session_id is not None and not isinstance(last_session_id, str):
         raise ValueError('last_session_id must be a string or null')
     return _impl.RuntimeSettings(
-        profiles=[_impl._profile_from_dict(item) for item in rows('profiles')],
-        policies=[_impl._policy_from_dict(item) for item in rows('policies')],
+        profiles=[profile(item) for item in rows('profiles')],
+        policies=[policy(item) for item in rows('policies')],
         session_profiles={str(k): str(v) for k, v in session_profiles.items()},
         last_session_id=last_session_id,
         version=RUNTIME_VERSION,
