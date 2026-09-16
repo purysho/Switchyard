@@ -6,6 +6,7 @@ from typing import Iterable, Callable
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import threading
@@ -578,9 +579,21 @@ class ManagedProcess:
         cwd = self.config.cwd or self.project.path
         env = os.environ.copy()
         env.update(self.config.env)
+        group_args = {}
+        if os.name == 'nt':
+            group_args['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            group_args['start_new_session'] = True
         self.process = subprocess.Popen(
-            self.config.command, cwd=cwd, env=env, shell=True,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+            self.config.command,
+            cwd=cwd,
+            env=env,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            **group_args,
         )
         self.started_at = time.time()
         self.ended_at = None
@@ -610,11 +623,38 @@ class ManagedProcess:
     def stop(self, grace: float = 2.0) -> None:
         if not self.process or self.process.poll() is not None:
             return
-        self.process.terminate()
+        pid = self.process.pid
+        try:
+            if os.name == 'nt':
+                subprocess.run(
+                    ['taskkill', '/PID', str(pid), '/T', '/F'],
+                    capture_output=True,
+                    text=True,
+                    timeout=max(1.0, grace + 1.0),
+                )
+            else:
+                os.killpg(os.getpgid(pid), signal.SIGTERM)
+        except Exception:
+            try:
+                self.process.terminate()
+            except Exception:
+                pass
         try:
             self.process.wait(timeout=grace)
         except subprocess.TimeoutExpired:
-            self.process.kill()
+            try:
+                if os.name != 'nt':
+                    os.killpg(os.getpgid(pid), signal.SIGKILL)
+                else:
+                    self.process.kill()
+            except Exception:
+                pass
+            try:
+                self.process.wait(timeout=1.0)
+            except Exception:
+                pass
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=1.0)
 
     @property
     def running(self) -> bool:
