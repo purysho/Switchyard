@@ -6,6 +6,8 @@ from typing import Any, Callable
 import json
 import os
 import shutil
+import tempfile
+import threading
 import time
 
 
@@ -22,6 +24,16 @@ class FutureSchemaError(ValueError):
         super().__init__(f'file schema {found} is newer than supported schema {supported}')
         self.found = found
         self.supported = supported
+
+
+_LOCK_GUARD = threading.Lock()
+_PATH_LOCKS: dict[str, threading.RLock] = {}
+
+
+def _path_lock(path: Path) -> threading.RLock:
+    key = os.path.abspath(os.fspath(path))
+    with _LOCK_GUARD:
+        return _PATH_LOCKS.setdefault(key, threading.RLock())
 
 
 def backup_path(path: Path, index: int) -> Path:
@@ -65,19 +77,47 @@ def _archive(path: Path, label: str) -> Path | None:
             return None
 
 
-def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+def _sync_directory(path: Path) -> None:
+    """Best-effort directory fsync so a completed rename survives abrupt shutdown."""
+    try:
+        flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0)
+        fd = os.open(os.fspath(path), flags)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + '.tmp')
-    encoded = json.dumps(payload, indent=2, ensure_ascii=False)
-    with temp.open('w', encoding='utf-8', newline='\n') as handle:
-        handle.write(encoded)
-        handle.write('\n')
-        handle.flush()
+    with _path_lock(path):
+        fd, raw_temp = tempfile.mkstemp(prefix=f'.{path.name}.', suffix='.tmp', dir=os.fspath(path.parent))
+        temp = Path(raw_temp)
         try:
-            os.fsync(handle.fileno())
-        except OSError:
-            pass
-    os.replace(temp, path)
+            with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as handle:
+                handle.write(text)
+                handle.flush()
+                try:
+                    os.fsync(handle.fileno())
+                except OSError:
+                    pass
+            os.replace(temp, path)
+            _sync_directory(path.parent)
+        finally:
+            try:
+                temp.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    encoded = json.dumps(payload, indent=2, ensure_ascii=False) + '\n'
+    atomic_write_text(Path(path), encoded)
 
 
 def rotate_valid_backups(path: Path, max_version: int, count: int = 3, validator: Callable[[dict[str, Any]], None] | None = None) -> bool:
@@ -117,47 +157,49 @@ def resilient_load_json(
     under timestamped names. A supported backup is copied back into the canonical
     path before returning.
     """
-    if not path.exists():
-        return None, None
+    path = Path(path)
+    with _path_lock(path):
+        if not path.exists():
+            return None, None
 
-    archived: Path | None = None
-    problem = ''
-    try:
-        return _parse_object(path, max_version, validator), None
-    except FutureSchemaError as exc:
-        problem = str(exc)
-        archived = _archive(path, f'future-v{exc.found}')
-    except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
-        problem = f'could not read current file: {exc}'
-        archived = _archive(path, 'corrupt')
+        archived: Path | None = None
+        problem = ''
+        try:
+            return _parse_object(path, max_version, validator), None
+        except FutureSchemaError as exc:
+            problem = str(exc)
+            archived = _archive(path, f'future-v{exc.found}')
+        except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
+            problem = f'could not read current file: {exc}'
+            archived = _archive(path, 'corrupt')
 
-    for index in range(1, backup_count + 1):
-        candidate = backup_path(path, index)
-        if not candidate.exists():
-            continue
-        try:
-            data = _parse_object(candidate, max_version, validator)
-        except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError):
-            continue
-        try:
-            atomic_write_json(path, data)
-        except OSError:
-            pass
+        for index in range(1, backup_count + 1):
+            candidate = backup_path(path, index)
+            if not candidate.exists():
+                continue
+            try:
+                data = _parse_object(candidate, max_version, validator)
+            except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError):
+                continue
+            try:
+                atomic_write_json(path, data)
+            except OSError:
+                pass
+            notice = RecoveryNotice(
+                label,
+                f'{label} recovered from backup {candidate.name}; {problem}',
+                source=str(candidate),
+                archived=str(archived) if archived else None,
+            )
+            return data, notice
+
         notice = RecoveryNotice(
             label,
-            f'{label} recovered from backup {candidate.name}; {problem}',
-            source=str(candidate),
+            f'{label} could not be recovered; starting with safe defaults. {problem}',
+            source=None,
             archived=str(archived) if archived else None,
         )
-        return data, notice
-
-    notice = RecoveryNotice(
-        label,
-        f'{label} could not be recovered; starting with safe defaults. {problem}',
-        source=None,
-        archived=str(archived) if archived else None,
-    )
-    return None, notice
+        return None, notice
 
 
 def resilient_save_json(
@@ -168,19 +210,25 @@ def resilient_save_json(
     backup_count: int = 3,
     validator: Callable[[dict[str, Any]], None] | None = None,
 ) -> None:
-    """Back up a supported current file, then atomically replace it."""
+    """Back up a supported current file, then atomically replace it.
+
+    The entire rotate-and-replace sequence is serialized per destination so worker
+    threads cannot trample a shared temporary file or interleave backup generations.
+    """
+    path = Path(path)
     if validator:
         validator(payload)
-    if path.exists():
-        try:
-            current = json.loads(path.read_text(encoding='utf-8'))
-            if isinstance(current, dict) and int(current.get('version', 1)) > max_version:
-                raise FutureSchemaError(int(current['version']), max_version)
-        except FutureSchemaError:
-            raise
-        except Exception:
-            # A corrupt current file is never promoted to a backup. A prior load
-            # normally archives it; atomic replacement here is still safe.
-            pass
-    rotate_valid_backups(path, max_version, backup_count, validator)
-    atomic_write_json(path, payload)
+    with _path_lock(path):
+        if path.exists():
+            try:
+                current = json.loads(path.read_text(encoding='utf-8'))
+                if isinstance(current, dict) and int(current.get('version', 1)) > max_version:
+                    raise FutureSchemaError(int(current['version']), max_version)
+            except FutureSchemaError:
+                raise
+            except Exception:
+                # A corrupt current file is never promoted to a backup. A prior load
+                # normally archives it; atomic replacement here is still safe.
+                pass
+        rotate_valid_backups(path, max_version, backup_count, validator)
+        atomic_write_json(path, payload)
