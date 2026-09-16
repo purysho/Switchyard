@@ -1,6 +1,7 @@
-import socket
+import socketserver
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -19,12 +20,20 @@ def wait_until(predicate, timeout=6.0, interval=0.02):
     return bool(predicate())
 
 
+class _AcceptAndClose(socketserver.BaseRequestHandler):
+    def handle(self):
+        return
+
+
 class LifecycleHardeningTests(unittest.TestCase):
     def test_preoccupied_readiness_port_blocks_launch_instead_of_false_ready(self):
-        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.bind(('127.0.0.1', 0))
-        listener.listen(1)
+        # Use a real accepting server rather than a bare listen() socket. Windows can
+        # fill a tiny unaccepted backlog after the first preflight probe, making a
+        # second probe look closed even though the listener is still alive.
+        server = socketserver.ThreadingTCPServer(('127.0.0.1', 0), _AcceptAndClose)
+        server.daemon_threads = True
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
         try:
             with tempfile.TemporaryDirectory() as d:
                 project = new_project(d, 'Occupied port')
@@ -36,7 +45,7 @@ class LifecycleHardeningTests(unittest.TestCase):
                 )
                 service = Service(
                     'svc', project.id, 'API', f'"{sys.executable}" "{script}" "{sentinel}"',
-                    readiness=ReadinessCheck('port', str(listener.getsockname()[1]), 1.0),
+                    readiness=ReadinessCheck('port', str(server.server_address[1]), 1.0),
                 )
                 session = WorkspaceSession('session', 'Port collision', ['svc'])
                 state = WorkspaceState([project], project.id, services=[service], sessions=[session])
@@ -50,7 +59,9 @@ class LifecycleHardeningTests(unittest.TestCase):
                 self.assertFalse(sentinel.exists())
                 self.assertNotIn('svc', controller.processes)
         finally:
-            listener.close()
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
     def test_rapid_stop_then_restart_cannot_wake_stale_restart_worker(self):
         with tempfile.TemporaryDirectory() as d:
