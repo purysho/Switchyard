@@ -305,9 +305,11 @@ class CrashHardeningTests(unittest.TestCase):
             controller = ResilientSessionController(state, session, RuntimeSettings())
             controller.start()
             try:
-                self.assertTrue(wait_until(lambda: controller.status in {'DEGRADED', 'FAILED'}, timeout=4))
-                self.assertIn('first', controller.failed)
-                self.assertIn('second', controller.failed)
+                self.assertTrue(wait_until(
+                    lambda: 'first' in controller.failed and 'second' in controller.failed,
+                    timeout=4,
+                ))
+                self.assertIn(controller.status, {'DEGRADED', 'FAILED'})
                 self.assertNotIn('second', controller.processes)
                 self.assertTrue(any(e.kind == 'blocked' and e.service_id == 'second' for e in state.session_history))
             finally:
