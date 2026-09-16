@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import json
 import os
 import shutil
@@ -28,7 +28,7 @@ def backup_path(path: Path, index: int) -> Path:
     return path.with_name(path.name + f'.bak{index}')
 
 
-def _parse_object(path: Path, max_version: int) -> dict[str, Any]:
+def _parse_object(path: Path, max_version: int, validator: Callable[[dict[str, Any]], None] | None = None) -> dict[str, Any]:
     raw = path.read_text(encoding='utf-8')
     data = json.loads(raw)
     if not isinstance(data, dict):
@@ -39,6 +39,8 @@ def _parse_object(path: Path, max_version: int) -> dict[str, Any]:
         raise ValueError('schema version must be an integer') from exc
     if version > max_version:
         raise FutureSchemaError(version, max_version)
+    if validator:
+        validator(data)
     return data
 
 
@@ -78,12 +80,12 @@ def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     os.replace(temp, path)
 
 
-def rotate_valid_backups(path: Path, max_version: int, count: int = 3) -> bool:
-    """Rotate only a parseable, supported current file into backups."""
+def rotate_valid_backups(path: Path, max_version: int, count: int = 3, validator: Callable[[dict[str, Any]], None] | None = None) -> bool:
+    """Rotate only a parseable, supported, schema-valid current file into backups."""
     if count < 1 or not path.exists():
         return False
     try:
-        _parse_object(path, max_version)
+        _parse_object(path, max_version, validator)
     except (OSError, json.JSONDecodeError, ValueError):
         return False
     for index in range(count, 1, -1):
@@ -107,11 +109,13 @@ def resilient_load_json(
     *,
     label: str,
     backup_count: int = 3,
+    validator: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[dict[str, Any] | None, RecoveryNotice | None]:
     """Read a supported JSON object and recover from rotating backups when possible.
 
-    Corrupt or future-version current files are preserved under timestamped names.
-    A supported backup is copied back into the canonical path before returning.
+    Corrupt, structurally invalid, or future-version current files are preserved
+    under timestamped names. A supported backup is copied back into the canonical
+    path before returning.
     """
     if not path.exists():
         return None, None
@@ -119,11 +123,11 @@ def resilient_load_json(
     archived: Path | None = None
     problem = ''
     try:
-        return _parse_object(path, max_version), None
+        return _parse_object(path, max_version, validator), None
     except FutureSchemaError as exc:
         problem = str(exc)
         archived = _archive(path, f'future-v{exc.found}')
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
+    except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
         problem = f'could not read current file: {exc}'
         archived = _archive(path, 'corrupt')
 
@@ -132,8 +136,8 @@ def resilient_load_json(
         if not candidate.exists():
             continue
         try:
-            data = _parse_object(candidate, max_version)
-        except (OSError, json.JSONDecodeError, ValueError):
+            data = _parse_object(candidate, max_version, validator)
+        except (OSError, json.JSONDecodeError, ValueError, TypeError, KeyError):
             continue
         try:
             atomic_write_json(path, data)
@@ -162,8 +166,11 @@ def resilient_save_json(
     max_version: int,
     *,
     backup_count: int = 3,
+    validator: Callable[[dict[str, Any]], None] | None = None,
 ) -> None:
     """Back up a supported current file, then atomically replace it."""
+    if validator:
+        validator(payload)
     if path.exists():
         try:
             current = json.loads(path.read_text(encoding='utf-8'))
@@ -175,5 +182,5 @@ def resilient_save_json(
             # A corrupt current file is never promoted to a backup. A prior load
             # normally archives it; atomic replacement here is still safe.
             pass
-    rotate_valid_backups(path, max_version, backup_count)
+    rotate_valid_backups(path, max_version, backup_count, validator)
     atomic_write_json(path, payload)
