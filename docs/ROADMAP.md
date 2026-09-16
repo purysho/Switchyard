@@ -1,72 +1,69 @@
-# Switchyard Roadmap
+# Switchyard flagship roadmap
 
-Switchyard's flagship direction is **local development operations**, not code editing. The product should answer four questions quickly:
+Switchyard should become a dependable **local development workspace control plane**, not a generic shell wrapper.
 
-1. What is this project?
-2. What does it need to run?
-3. What is running now?
-4. What changed when something went wrong?
+## Phase 1 — Command center ✅
 
-## Phase 2 — Workspace Intelligence
+- project registry
+- notes
+- run configurations
+- managed processes
+- combined output
+- local port visibility
 
-- Project/framework detection.
-- Git and repository context.
-- Suggested tasks.
-- Health checks.
-- Persistent run history.
+## Phase 2 — Workspace intelligence ✅
 
-## Phase 3 — Service Graph
+- stack and task detection
+- Git intelligence
+- project health
+- run history
+- tags and pinning
+- richer run configuration management
 
-Treat a workspace as a graph of services rather than a list of shell commands.
+## Phase 3 — Service graph + workspace sessions ✅
 
-Planned model:
+- cross-project services
+- dependency graph validation
+- transitive dependency expansion
+- deterministic startup order
+- process / port / delay readiness gates
+- named workspace sessions
+- reverse-order shutdown
+- persistent orchestration timeline
+- dependent failure cascades
+- topology and live-service UI
 
-- Service: command + cwd + environment + expected ports.
-- Dependency: `web` waits for `api`; `api` waits for `db`.
-- Readiness: port-open, process-running, or log-pattern checks.
-- Session: named set of services with deterministic start/stop ordering.
-- Failure policy: stop dependents, continue, or restart with bounded backoff.
+## Phase 4 — Environments + resilient runtime
 
-The graph should remain explicit and inspectable; Switchyard should never infer destructive orchestration actions.
+Next priorities:
 
-## Phase 4 — Operational Timeline
+- environment profiles (`local`, `test`, `staging-like`) without storing secrets in plaintext
+- per-service environment overrides
+- HTTP readiness probes and richer health checks
+- restart policies with bounded backoff
+- startup concurrency for independent branches of a graph
+- orphan/crash detection when Switchyard restarts
+- session snapshots and one-click restore
+- clearer failure diagnosis and event filtering
 
-Create a local event stream for:
+## Phase 5 — Workspace topology
 
-- process start/stop/restart,
-- exit codes,
-- readiness transitions,
-- Git branch/dirty-state changes,
-- port appearance/disappearance,
-- user annotations.
+- interactive service graph
+- port ownership and conflict detection
+- repository/service relationship map
+- live dependency state overlays
+- service-specific log streams and search
+- session templates export/import
 
-This should enable post-mortem answers such as: *"the API stopped listening on 8000 18 seconds after the frontend build changed."*
+## Phase 6 — Deep integration
 
-## Phase 5 — Environment Profiles
+Potential integrations should remain optional and local:
 
-- Local/dev/test profiles.
-- Plain variables stored in workspace state.
-- Secrets referenced from OS environment or external secret providers rather than copied into Switchyard state.
-- Per-service overrides with a resolved-environment preview before launch.
+- Docker / Compose observation without taking ownership away from Docker
+- Git worktree awareness
+- terminal/editor handoff
+- BLACKBOX repository intelligence handoff
+- Relay endpoint handoff
+- Pulse process/network handoff
 
-## Phase 6 — Project Adapters
-
-Deeper but optional adapters for ecosystems such as:
-
-- Node / package scripts
-- Tauri
-- Python
-- Cargo
-- Docker Compose
-
-Adapters should contribute metadata, task suggestions and readiness hints. They should not turn Switchyard into a package manager or IDE.
-
-## Non-goals
-
-- Cloud deployment platform.
-- Hosted team collaboration product.
-- Source-code editor.
-- Automatic execution of detected scripts.
-- Secret vault.
-
-Switchyard should stay a fast, understandable local control plane.
+The product principle remains: **Switchyard coordinates the workspace; specialized Purysho tools can inspect individual layers more deeply.**
