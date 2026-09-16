@@ -27,5 +27,37 @@ jobs:
         run: |
           $p = Start-Process -FilePath .\dist\Switchyard.exe -ArgumentList '--smoke-test' -Wait -PassThru
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
+      - name: Generate candidate checksum
+        shell: powershell
+        run: |
+          $h = (Get-FileHash .\dist\Switchyard.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  Switchyard.exe" | Out-File -Encoding ascii .\dist\Switchyard.exe.sha256
+          Write-Host "Switchyard.exe SHA256 $h"
       - uses: actions/upload-artifact@v4
-        with: { name: Switchyard-windows, path: dist/Switchyard.exe }
+        with:
+          name: Switchyard-windows
+          path: |
+            dist/Switchyard.exe
+            dist/Switchyard.exe.sha256
+  artifact-verification:
+    needs: windows-build
+    runs-on: windows-latest
+    steps:
+      - name: Download uploaded Windows candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: Switchyard-windows
+          path: candidate
+      - name: Verify downloaded candidate checksum and launch
+        shell: powershell
+        run: |
+          $exe = Resolve-Path .\candidate\Switchyard.exe
+          $sum = Resolve-Path .\candidate\Switchyard.exe.sha256
+          $expected = ((Get-Content $sum) -split '\s+')[0].Trim().ToLower()
+          $actual = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          if ($expected -ne $actual) { throw "Checksum mismatch: expected $expected, got $actual" }
+          $item = Get-Item $exe
+          if ($item.Length -lt 1000000) { throw "Candidate executable is unexpectedly small: $($item.Length) bytes" }
+          Write-Host "Downloaded candidate verified: $($item.Length) bytes, SHA256 $actual"
+          $p = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Downloaded candidate smoke test failed with exit code $($p.ExitCode)" }
