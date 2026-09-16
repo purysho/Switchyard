@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### V1 hardening + release QA
+
+- Added destructive-state recovery coverage for corrupt current files, rotating backup fallback, unsupported future schemas, interrupted atomic replacement, and evidence preservation.
+- Added strict nested-schema validation so malformed string values cannot be silently split into character lists.
+- Added per-path serialized atomic persistence with unique temporary files, fsync, and crash-safe log exports.
+- Added lifecycle abuse tests for rapid stop/start/restart, duplicate starts, missing projects/executables, concurrent service failures, occupied readiness ports, and real spawned process trees.
+- Made preoccupied readiness ports blocking in V1 so unrelated listeners cannot produce a false READY result.
+- Added generation-scoped restart workers so stale backoff threads cannot relaunch processes after a stop/start cycle; restart budgets now reset on each user-initiated session start.
+- Hardened crash recovery so unresolved orphan-process evidence survives repeated Switchyard crashes until the user explicitly resolves or forgets it.
+- Added a headless first-run smoke test covering empty state, project persistence, preflight, startup/readiness, shutdown, and reload.
+- Added packaged `Switchyard.exe --smoke-test` support and made CI/release workflows gate on both the headless first-run test and packaged executable launch.
+- Expanded CI compilation checks to every `switchyard_*.py` module plus the desktop entrypoint.
+- Added `docs/V1_RELEASE_CHECKLIST.md` for automated, destructive, first-run, packaging, and manual Windows release gates.
+
 ### Phase 5 — Visual Topology + Recovery
 
 - Added a dedicated live topology canvas with deterministic dependency layout and runtime status overlays.
