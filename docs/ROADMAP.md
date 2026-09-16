@@ -33,27 +33,32 @@ Switchyard should become a dependable **local development workspace control plan
 - dependent failure cascades
 - topology and live-service UI
 
-## Phase 4 — Environments + resilient runtime
+## Phase 4 — Environments + resilient runtime ✅
+
+- environment profiles without persisting inherited secret values
+- session-level profiles and per-service overrides
+- HTTP readiness probes
+- session preflight diagnostics
+- duplicate readiness-port detection
+- parallel startup for independent dependency branches
+- `never`, `on_failure`, and `always` restart policies
+- bounded exponential restart backoff
+- resilient-runtime event history
+- dedicated Runtime desktop controls
+
+## Phase 5 — Visual topology + recovery
 
 Next priorities:
 
-- environment profiles (`local`, `test`, `staging-like`) without storing secrets in plaintext
-- per-service environment overrides
-- HTTP readiness probes and richer health checks
-- restart policies with bounded backoff
-- startup concurrency for independent branches of a graph
-- orphan/crash detection when Switchyard restarts
-- session snapshots and one-click restore
-- clearer failure diagnosis and event filtering
-
-## Phase 5 — Workspace topology
-
-- interactive service graph
-- port ownership and conflict detection
-- repository/service relationship map
-- live dependency state overlays
-- service-specific log streams and search
+- interactive service graph rather than text-only topology
+- live dependency-state overlays
+- port ownership and conflict attribution
+- service-specific log streams, filtering, and search
+- process identity snapshots for orphan/crash detection
+- recovery notice after unclean Switchyard shutdown
+- session snapshots and explicit one-click restore
 - session templates export/import
+- clearer event filtering and failure diagnosis
 
 ## Phase 6 — Deep integration
 
@@ -66,4 +71,8 @@ Potential integrations should remain optional and local:
 - Relay endpoint handoff
 - Pulse process/network handoff
 
-The product principle remains: **Switchyard coordinates the workspace; specialized Purysho tools can inspect individual layers more deeply.**
+## Product rule
+
+**Switchyard coordinates the workspace; specialized Purysho tools inspect individual layers more deeply.**
+
+Integrations should therefore be handoffs and shared context, not attempts to rebuild BLACKBOX, Relay, Pulse, or the operating system inside Switchyard.
