@@ -177,7 +177,7 @@ See [SECURITY.md](SECURITY.md) for security reporting and [docs/ARCHITECTURE.md]
 
 ## V1 release hardening
 
-The V1 release candidate is gated by destructive-state recovery, process-tree shutdown, bounded restart behavior, occupied-port fail-closed checks, concurrent-write safety, first-run smoke tests, full-module compilation, and a packaged executable launch probe.
+The V1 release candidate is gated by destructive-state recovery, process-tree shutdown, bounded restart behavior, occupied-port fail-closed checks, concurrent-write safety, first-run smoke tests, full-module compilation, repeated cross-platform soak runs, and packaged executable verification after artifact re-download.
 
 See [docs/V1_RELEASE_CHECKLIST.md](docs/V1_RELEASE_CHECKLIST.md) for the final automated and manual release gates. Longer-term work remains tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
 
