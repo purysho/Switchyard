@@ -44,7 +44,7 @@ jobs:
           "$h  Switchyard.exe" | Out-File -Encoding ascii dist\Switchyard.exe.sha256
           Write-Host "Switchyard.exe SHA256 $h"
       - name: Publish GitHub release
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
