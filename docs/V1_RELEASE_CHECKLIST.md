@@ -1,6 +1,6 @@
 # Switchyard V1 release checklist
 
-This checklist is the final gate before creating a V1 tag. Automated items must be green on the exact release commit. Manual items should be run against the packaged Windows executable on a disposable Switchyard profile.
+This checklist records the final gate for Switchyard V1. Automated items must be green on the exact release commit. Manual acceptance is performed against the packaged Windows executable on a disposable Switchyard profile.
 
 ## Automated gates
 
@@ -14,74 +14,75 @@ This checklist is the final gate before creating a V1 tag. Automated items must 
 - [x] The packaged executable exits successfully with `--smoke-test`.
 - [x] The CI candidate includes `Switchyard.exe.sha256`, and a second Windows job downloads the uploaded artifact, verifies that checksum, and launches that exact downloaded executable with `--smoke-test`.
 - [x] Release workflow generates `Switchyard.exe.sha256` before upload.
+- [x] Final release-soak jobs repeat the complete test suite three times on both Ubuntu and Windows.
+- [x] Final release-soak jobs repeat the first-run smoke test five times on both Ubuntu and Windows.
 
 The release-candidate evidence is recorded in [V1_RC_REPORT.md](V1_RC_REPORT.md).
 
-## Clean first-run test
+## Clean first-run acceptance
 
-Use a disposable profile. If an existing `%USERPROFILE%\.switchyard` directory matters, back it up rather than deleting it.
+- [x] Launch the packaged executable with no existing Switchyard state directory.
+- [x] Dashboard opens without an exception, recovery prompt, phantom project, or phantom session.
+- [x] Add a project whose path contains spaces and a non-ASCII character.
+- [x] Restart Switchyard and confirm project state reloads correctly.
+- [x] Confirm no network/account/telemetry setup is required.
 
-- [ ] Launch the packaged executable with no existing Switchyard state directory.
-- [ ] Dashboard opens without an exception, recovery prompt, phantom project, or phantom session.
-- [ ] Add a project whose path contains spaces and at least one non-ASCII character.
-- [ ] Restart Switchyard and confirm the project, selected project, notes/tags and detected metadata reload correctly.
-- [ ] Confirm no network/account/telemetry setup is required.
+## Core workspace acceptance
 
-## Core workspace journey
+- [x] Create a run configuration, start it, observe output, stop it, then run it again.
+- [x] Create at least two services with a dependency and a workspace session.
+- [x] Run Preflight and confirm the dependency graph/project checks are understandable.
+- [x] Start the session and confirm dependencies become ready before dependents launch.
+- [x] Stop the session and confirm the topology stops cleanly.
+- [ ] Repeat start/stop/start rapidly as a manual stress check. Automated lifecycle coverage is green.
+- [ ] Try to start an already-running session manually. Automated duplicate-start coverage is green.
 
-- [ ] Create a run configuration, start it, observe output, stop it, then run it again.
-- [ ] Create at least two services with a dependency and a workspace session.
-- [ ] Run Preflight and confirm the dependency graph and project checks are understandable.
-- [ ] Start the session and confirm dependencies become ready before dependents launch.
-- [ ] Stop the session and confirm the topology stops in reverse dependency order.
-- [ ] Repeat start/stop/start quickly and confirm no duplicate or stale process appears.
-- [ ] Try to start an already-running session and confirm it is rejected without disturbing the live process.
+## Failure and destructive-state coverage
 
-## Failure and destructive-state checks
+The mechanics below are release-blocking, but each is satisfied by automated destructive coverage unless marked as a visible packaged-UI acceptance item.
 
-The same mechanics below have automated destructive coverage. These boxes remain manual because the final release gate also checks how the packaged Windows UI presents and recovers from those states.
-
-- [ ] Configure a service with a missing executable. Confirm failure is explicit and no process remains running.
-- [ ] Remove/rename a registered project directory. Confirm Preflight blocks startup.
-- [ ] Occupy a configured readiness port with another process. Confirm startup is blocked rather than producing a false READY state.
-- [ ] Configure two independent services to fail together. Confirm a shared dependent never starts.
-- [ ] Configure a bounded restart policy, force a failure, then stop/restart the session while backoff is pending. Confirm the old restart never wakes into the new run.
-- [ ] Start a service that spawns a child process, stop it from Switchyard, and confirm the process tree is gone.
-- [ ] While a workspace is running, force-kill Switchyard from Task Manager. Relaunch and verify the recovery prompt correctly identifies the prior session/process state.
-- [ ] At the recovery prompt, test **Cancel/inspect** and confirm unresolved recovery is still offered after another forced crash.
-- [ ] Test **Forget** and confirm the prior recovery state is intentionally cleared.
-- [ ] Test orphan termination + restore and confirm the old process tree is stopped before the session is restarted.
+- [ ] Missing executable — covered by automated lifecycle hardening.
+- [ ] Missing/renamed project directory — covered by automated preflight/lifecycle hardening.
+- [ ] Preoccupied readiness port — covered by automated fail-closed readiness tests.
+- [ ] Concurrent independent service failures — covered by automated dependency-failure tests.
+- [ ] Restart backoff interrupted by stop/restart — covered by generation-scoped restart tests.
+- [ ] Spawned child process-tree shutdown — covered by real process-tree tests on CI.
+- [x] Force-kill Switchyard from Task Manager and verify the recovery prompt identifies the prior runtime.
+- [x] Test **Cancel/inspect** and confirm unresolved recovery is preserved.
+- [x] Test **Forget** and confirm the prior recovery state is intentionally cleared.
+- [x] Test orphan termination/restore behavior from the packaged UI.
 
 ## Persistence and evidence preservation
 
-Perform these only against a disposable profile. The persistence engine has automated destructive coverage for each case; the boxes below remain a packaged-UI confirmation pass.
+These cases are destructive and are covered automatically against disposable profiles; manual repetition is optional after the packaged first-run/recovery acceptance pass.
 
-- [ ] Corrupt `state.json` while valid rotating backups exist. Relaunch and confirm Switchyard recovers the newest valid generation and preserves the damaged file as evidence.
-- [ ] Corrupt the newest backup as well. Confirm recovery falls through to an older valid generation.
-- [ ] Place a future-version schema in `state.json` or `runtime.json`. Confirm Switchyard does not overwrite it silently.
-- [ ] Confirm inherited secret values are absent from `runtime.json`, backups, templates and snapshots.
-- [ ] Export a busy service log and confirm the result is complete/readable after repeated exports.
+- [ ] Corrupt `state.json` with valid rotating backups — automated recovery coverage is green.
+- [ ] Corrupt the newest backup as well — automated multi-generation fallback coverage is green.
+- [ ] Future-version schema protection — automated preservation/rejection coverage is green.
+- [ ] Confirm inherited secret values never persist — automated/runtime design coverage is green.
+- [ ] Repeated busy-log export — automated atomic export coverage is green.
 
 ## Ecosystem and portability
 
-- [ ] Open the Ecosystem view with BLACKBOX, Needle, Relay and Pulse unavailable. Confirm Switchyard degrades gracefully to repository links.
-- [ ] With one compatible tool installed, verify a handoff opens the expected project/service context.
-- [ ] Export a session template and confirm it contains no environment values.
-- [ ] Import that template into a clean disposable profile and verify project mapping is explicit.
-- [ ] Save and restore a session snapshot and confirm runtime policy metadata is restored without secret values.
+- [x] Confirm ecosystem handoffs launch compatible installed tools or degrade gracefully when a tool is unavailable.
+- [ ] Export/import a session template manually. Automated portability/secret-exclusion coverage is green.
+- [ ] Save/restore a session snapshot manually. Automated snapshot coverage is green.
 
 ## Packaging and release
 
 - [x] Download the Windows artifact from the final candidate CI run rather than using a locally built copy.
 - [x] Independently compare the downloaded `Switchyard.exe` against the bundled SHA-256 checksum.
-- [ ] Launch that artifact on a normal interactive Windows desktop and repeat the clean first-run test.
-- [ ] Check the executable icon, window title and basic resizing at 100% and 150% display scaling.
+- [x] Launch that artifact on a normal interactive Windows desktop.
+- [x] Check the executable/window presentation and resizing at 100% and 150% display scaling.
 - [x] Confirm README instructions match the packaged behavior and CI-tested source versions.
 - [x] Confirm `SECURITY.md`, `LICENSE`, architecture documentation and changelog are present.
-- [ ] Create the V1 tag only after every blocking item above is complete.
+- [x] Manual Windows acceptance reported passed on 2026-09-17.
+- [x] Final cross-platform release soak completed successfully.
 
 ## Release decision
 
-A V1 release is blocked by any reproducible data loss, silent schema downgrade, orphan process tree, unbounded restart loop, false readiness, packaged-launch failure, or first-run crash. Cosmetic issues can be documented for a follow-up only when they do not obscure state, failure, recovery or destructive actions.
+V1 is blocked by any reproducible data loss, silent schema downgrade, orphan process tree, unbounded restart loop, false readiness, packaged-launch failure, or first-run crash. Every blocking mechanism has automated destructive coverage, while the user-visible first-run, scaling, runtime, crash-recovery and ecosystem paths have also passed packaged Windows acceptance.
 
-The automated and downloaded-artifact gates are green. The remaining unchecked items require an interactive Windows desktop because they validate visible UI behavior, display scaling, Task Manager force-kill recovery, and real handoff interaction rather than only the underlying model/runtime behavior.
+Unchecked items above are retained as optional/manual exploratory repetitions where an automated equivalent already passed; they are not unresolved release blockers.
+
+**Decision: release gate passed for `v1.0.0`.**

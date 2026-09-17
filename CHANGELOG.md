@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — 2026-09-17
 
 ### V1 hardening + release QA
 
@@ -14,7 +14,9 @@
 - Added a headless first-run smoke test covering empty state, project persistence, preflight, startup/readiness, shutdown, and reload.
 - Added packaged `Switchyard.exe --smoke-test` support and made CI/release workflows gate on both the headless first-run test and packaged executable launch.
 - Expanded CI compilation checks to every `switchyard_*.py` module plus the desktop entrypoint.
-- Added `docs/V1_RELEASE_CHECKLIST.md` for automated, destructive, first-run, packaging, and manual Windows release gates.
+- Added repeated Windows/Linux release-soak runs and post-upload artifact checksum/launch verification.
+- Completed packaged Windows acceptance testing for first launch, scaling/resizing, persistence, basic run/session flows, forced-crash recovery, and ecosystem handoff behavior.
+- Added `docs/V1_RELEASE_CHECKLIST.md` and `docs/V1_RC_REPORT.md` to preserve release evidence.
 
 ### Phase 5 — Visual Topology + Recovery
 

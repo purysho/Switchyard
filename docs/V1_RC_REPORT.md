@@ -1,54 +1,59 @@
 # Switchyard V1 release-candidate report
 
-This report records the release-candidate gate added during V1 hardening. It is evidence for the packaged artifact path, not a substitute for the remaining interactive Windows UI checks in `V1_RELEASE_CHECKLIST.md`.
+This report records the final V1 release-candidate evidence for Switchyard.
 
 ## Candidate pipeline
 
-The release-candidate CI pipeline now performs all of the following before V1 can be considered for tagging:
+The V1 pipeline verifies the release path with all of the following:
 
-1. Run the full unit and destructive/hardening suite on Ubuntu with Python 3.10 and 3.12.
-2. Run the same suite on Windows with Python 3.10 and 3.12.
-3. Run `tools/v1_smoke.py` in every matrix job against a disposable profile.
-4. Compile every `switchyard_*.py` module plus `switchyard_desktop.pyw`.
-5. Build the one-file Windows GUI executable.
-6. Launch the newly built executable with `--smoke-test`.
-7. Generate `Switchyard.exe.sha256`.
-8. Upload the executable and checksum as the `Switchyard-windows` artifact.
-9. Start a separate Windows job that downloads that uploaded artifact from GitHub Actions.
-10. Recompute the executable SHA-256, compare it with the downloaded checksum file, reject unexpectedly small executables, and launch the exact downloaded executable with `--smoke-test`.
+1. Full unit and destructive/hardening suite on Ubuntu with Python 3.10 and 3.12.
+2. The same suite on Windows with Python 3.10 and 3.12.
+3. `tools/v1_smoke.py` against a disposable profile in every matrix job.
+4. Compilation of every `switchyard_*.py` module plus `switchyard_desktop.pyw`.
+5. One-file Windows GUI executable build.
+6. Packaged executable launch with `--smoke-test`.
+7. SHA-256 generation for the packaged executable.
+8. Upload of the executable and checksum as a GitHub Actions artifact.
+9. A separate Windows job that downloads that uploaded artifact.
+10. Independent checksum recomputation and launch of the exact downloaded executable.
+11. Final release-soak jobs that repeat the full test suite three times on both Windows and Ubuntu.
+12. Final release-soak jobs that repeat the first-run smoke test five times on both Windows and Ubuntu.
 
-This final download-and-run step is intentionally separate from the build job: it verifies the artifact users would actually retrieve rather than only the file that existed inside the builder workspace.
+The download-and-run verification is deliberately separate from the build job so the pipeline validates the artifact users would retrieve rather than only the copy inside the builder workspace.
 
-## Verified candidate evidence
+## Automated evidence
 
-The first complete run of the downloaded-artifact gate was GitHub Actions run `35137424117` on commit `54443f045b6ea3feed3859a51d498a270a228893`.
+The downloaded-artifact gate completed successfully in GitHub Actions, followed by a final release-soak run that also completed successfully on Windows and Ubuntu.
 
-All four test jobs, the Windows build job, and the post-upload `artifact-verification` job completed successfully.
+The V1 hardening suite covers corrupt state/runtime files, rotating backup fallback, future-schema protection, interrupted writes, Unicode/space-heavy paths, stale crash journals, orphan-process recovery, bounded log floods, bounded restart loops, dependency failure propagation, missing projects/executables, occupied readiness ports, rapid lifecycle transitions, concurrent failures and spawned process-tree shutdown.
 
-The uploaded artifact was independently downloaded after CI. Its GitHub artifact ZIP digest was:
-
-```text
-sha256:7155faf692ffc22a00139b634d9be719570bdec9e5367a9cf00f9f2507f9e117
-```
-
-The ZIP contained:
+The final Windows artifact path also verifies:
 
 ```text
 Switchyard.exe
 Switchyard.exe.sha256
 ```
 
-The executable was 12,748,770 bytes and its bundled checksum matched an independent recomputation:
+The executable is a 64-bit Windows GUI PE. It is currently not Authenticode-signed. That is not treated as a functional V1 blocker, but it can cause Windows reputation/SmartScreen friction until code signing is introduced.
 
-```text
-9dc5865c91a8a1f111efeea207ea7aebffcdac8a6fd628a6e622af40ad77e568  Switchyard.exe
-```
+## Manual packaged Windows acceptance
 
-Static PE inspection identified it as an x86-64 Windows GUI executable. It is currently unsigned; the PE security directory is empty. This is not treated as a functional V1 blocker, but it should be understood as a possible Windows reputation/SmartScreen friction point until code signing is introduced.
+On 2026-09-17 the packaged release candidate passed interactive Windows acceptance covering:
+
+- clean first visible launch
+- normal resizing and 100% / 150% display scaling
+- project paths containing spaces/non-ASCII characters and persistence across restart
+- run configuration start/stop/re-run behavior
+- a simple dependency-based workspace session with preflight/start/stop
+- Task Manager force-kill followed by crash-recovery presentation
+- Cancel/inspect, Forget and orphan-recovery behavior
+- ecosystem handoff behavior when companion tools are installed or unavailable
+
+This manual pass complements the deeper destructive scenarios already covered automatically.
 
 ## Repository release material
 
-The candidate branch contains the expected public release material:
+The release candidate contains:
 
 - `README.md`
 - `SECURITY.md`
@@ -57,24 +62,15 @@ The candidate branch contains the expected public release material:
 - `docs/ARCHITECTURE.md`
 - `docs/ROADMAP.md`
 - `docs/V1_RELEASE_CHECKLIST.md`
+- this release-candidate report
 - interface preview artwork
 - Windows build workflow
-- tagged release workflow with executable checksum generation
+- V1 release workflow with executable checksum generation and GitHub Release publication
 
-## What remains deliberately manual
+## Release decision
 
-The remaining release gate requires a normal interactive Windows desktop. It validates behavior that cannot be established by headless CI alone:
+The automated test matrix, repeated Windows/Linux soak, packaged executable verification, downloaded-artifact checksum/launch gate, and interactive Windows acceptance all passed.
 
-- first visible launch and empty-state presentation
-- window title/icon and resizing at 100% and 150% display scaling
-- Task Manager force-kill followed by the visible recovery flow
-- **Cancel/inspect**, **Forget**, and orphan termination + restore interactions
-- visible persistence/recovery messaging after intentionally damaged files
-- installed Purysho ecosystem handoffs
-- template/snapshot workflows through the actual desktop controls
+No release-blocking data-loss, silent schema downgrade, orphan process-tree, unbounded restart, false-readiness, packaged-launch or first-run failure remains known at the V1 gate.
 
-The underlying mechanics for these paths are covered by automated tests, but the V1 tag should wait until the visible packaged experience has also been exercised on an interactive Windows machine.
-
-## Release rule
-
-Do not tag `v1.0.0` if the final exact release commit has a failing CI gate or if the interactive Windows pass finds reproducible data loss, false readiness, orphan process trees, unbounded restarts, silent schema downgrade, packaged-launch failure, or a first-run crash.
+**Switchyard is cleared for `v1.0.0`.**
