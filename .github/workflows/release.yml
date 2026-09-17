@@ -66,5 +66,5 @@ jobs:
             gh release create "$tag" dist\Switchyard.exe dist\Switchyard.exe.sha256 --repo "${{ github.repository }}" --target main --title "Switchyard $tag" --generate-notes
             if ($LASTEXITCODE -ne 0) { throw "gh release create failed with exit code $LASTEXITCODE" }
           } else {
-            throw "Unexpected GitHub API response while checking release $tag: HTTP $($response.StatusCode)"
+            throw "Unexpected GitHub API response while checking release ${tag}: HTTP $($response.StatusCode)"
           }
