@@ -14,6 +14,21 @@ jobs:
       - name: Compile all Switchyard modules
         run: >-
           python -c "from pathlib import Path; import py_compile; files=sorted(Path('.').glob('switchyard_*.py'))+[Path('switchyard_desktop.pyw')]; [py_compile.compile(str(p), doraise=True) for p in files]; print(f'compiled {len(files)} modules')"
+  release-soak:
+    strategy: { matrix: { os: [ubuntu-latest, windows-latest] } }
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONFAULTHANDLER: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Repeat full test suite three times
+        run: >-
+          python -c "import subprocess,sys; [subprocess.run([sys.executable,'-m','unittest','discover','-s','tests','-v'], check=True) for _ in range(3)]"
+      - name: Repeat first-run smoke five times
+        run: >-
+          python -c "import subprocess,sys; [subprocess.run([sys.executable,'tools/v1_smoke.py'], check=True) for _ in range(5)]"
   windows-build:
     runs-on: windows-latest
     steps:
