@@ -4,13 +4,20 @@ Switchyard v1.0.0 is released. This document separates post-release observation 
 
 ## Published artifact baseline
 
-- Release: `v1.0.0`
+### Current release — v1.0.1
+
 - Windows asset: `Switchyard.exe`
+- Published size: `12,748,403` bytes
+- SHA-256: `17b9c92242750e525cc54c22051b4657cc17570ad3e028e6af025eee2231bacb`
+- Release asset is currently unsigned.
+- Patch: relative custom working directories now resolve from the project root, and unavailable custom working directories block in Preflight.
+
+### Original release — v1.0.0
+
 - Published size: `12,748,460` bytes
 - SHA-256: `1725944a25075cb18ab20c390dbcb0fe2e5c20f59c2b8b5355df0704d5814ea1`
-- Release asset is currently unsigned.
 
-The `Post-v1 observation` workflow downloads the public release assets, verifies the checksum file and known release digest, then runs the packaged `--smoke-test` probe.
+The `Post-v1 observation` workflow downloads the current public release assets, verifies the checksum file and known release digest, then runs the packaged `--smoke-test` probe.
 
 ## Observation focus
 
@@ -46,16 +53,13 @@ The observation probe and existing hardening tests cover:
 - concurrent persistence/export writes
 - custom working-directory validation
 
-## v1.0.1 gate
+## v1.0.1 outcome
 
-A v1.0.1 candidate must be:
+The post-v1.0 pass reproduced one bounded shipped defect: custom relative working directories were resolved from Switchyard's launch directory, and missing custom working directories were not blocked during Preflight.
 
-1. reproducible against v1.0.0;
-2. a shipped defect or release/installation regression;
-3. bounded enough to fix without adding a new capability;
-4. covered by a regression test.
+The fix is covered by regression tests and shipped in **v1.0.1**. No additional product defect was promoted into the patch.
 
-Feature requests and capability expansion belong in v1.1 planning.
+Further fixes should require a new concrete reproduction. Feature requests and capability expansion belong in v1.1 planning.
 
 ## Known non-regressions
 
