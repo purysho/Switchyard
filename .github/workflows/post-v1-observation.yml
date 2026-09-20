@@ -37,22 +37,22 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
-      - name: Download published v1.0.0 assets
+      - name: Download published v1.0.1 assets
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe" -OutFile "Switchyard.exe"
-          Invoke-WebRequest -Uri "https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe.sha256" -OutFile "Switchyard.exe.sha256"
+          Invoke-WebRequest -Uri "https://github.com/purysho/Switchyard/releases/download/v1.0.1/Switchyard.exe" -OutFile "Switchyard.exe"
+          Invoke-WebRequest -Uri "https://github.com/purysho/Switchyard/releases/download/v1.0.1/Switchyard.exe.sha256" -OutFile "Switchyard.exe.sha256"
       - name: Verify published checksum and known release digest
         shell: pwsh
         run: |
           $expected = ((Get-Content .\Switchyard.exe.sha256) -split '\s+')[0].Trim().ToLower()
           $actual = (Get-FileHash .\Switchyard.exe -Algorithm SHA256).Hash.ToLower()
-          $known = "1725944a25075cb18ab20c390dbcb0fe2e5c20f59c2b8b5355df0704d5814ea1"
+          $known = "17b9c92242750e525cc54c22051b4657cc17570ad3e028e6af025eee2231bacb"
           if ($expected -ne $actual) { throw "Published checksum mismatch: expected $expected, got $actual" }
           if ($actual -ne $known) { throw "Published executable digest changed: expected $known, got $actual" }
           $item = Get-Item .\Switchyard.exe
-          if ($item.Length -ne 12748460) { throw "Published executable size changed: $($item.Length)" }
-          Write-Host "Published v1.0.0 verified: $($item.Length) bytes, SHA256 $actual"
+          if ($item.Length -ne 12748403) { throw "Published executable size changed: $($item.Length)" }
+          Write-Host "Published v1.0.1 verified: $($item.Length) bytes, SHA256 $actual"
       - name: Launch published executable smoke probe
         shell: pwsh
         run: |
