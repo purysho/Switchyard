@@ -1,0 +1,60 @@
+name: Post-v1 observation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'switchyard_*.py'
+      - 'tools/post_v1_observation.py'
+      - '.github/workflows/post-v1-observation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-observation:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Core first-run journey
+        run: python tools/v1_smoke.py
+      - name: Failure and performance observation
+        run: python tools/post_v1_observation.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: post-v1-observation-${{ matrix.os }}
+          path: post_v1_observation.json
+
+  published-windows-artifact:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download published v1.0.0 assets
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe" -OutFile "Switchyard.exe"
+          Invoke-WebRequest -Uri "https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe.sha256" -OutFile "Switchyard.exe.sha256"
+      - name: Verify published checksum and known release digest
+        shell: pwsh
+        run: |
+          $expected = ((Get-Content .\Switchyard.exe.sha256) -split '\s+')[0].Trim().ToLower()
+          $actual = (Get-FileHash .\Switchyard.exe -Algorithm SHA256).Hash.ToLower()
+          $known = "1725944a25075cb18ab20c390dbcb0fe2e5c20f59c2b8b5355df0704d5814ea1"
+          if ($expected -ne $actual) { throw "Published checksum mismatch: expected $expected, got $actual" }
+          if ($actual -ne $known) { throw "Published executable digest changed: expected $known, got $actual" }
+          $item = Get-Item .\Switchyard.exe
+          if ($item.Length -ne 12748460) { throw "Published executable size changed: $($item.Length)" }
+          Write-Host "Published v1.0.0 verified: $($item.Length) bytes, SHA256 $actual"
+      - name: Launch published executable smoke probe
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath .\Switchyard.exe -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Published executable smoke probe failed with exit code $($p.ExitCode)" }
