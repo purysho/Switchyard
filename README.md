@@ -8,10 +8,10 @@ Switchyard is the flagship Purysho desktop tool. It sits above individual reposi
 
 ## Download
 
-The current public release is **v1.0.0** for Windows:
+The current public release is **v1.0.1** for Windows:
 
-- [Download Switchyard.exe](https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe)
-- [Download SHA-256 checksum](https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe.sha256)
+- [Download Switchyard.exe](https://github.com/purysho/Switchyard/releases/download/v1.0.1/Switchyard.exe)
+- [Download SHA-256 checksum](https://github.com/purysho/Switchyard/releases/download/v1.0.1/Switchyard.exe.sha256)
 
 The executable is portable and does not require an installer. It is currently **not Authenticode-signed**, so Windows SmartScreen may show a reputation warning on first launch. Verify the SHA-256 checksum before running the file if you want an independent integrity check.
 
