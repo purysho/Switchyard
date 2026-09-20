@@ -6,6 +6,16 @@
 
 Switchyard is the flagship Purysho desktop tool. It sits above individual repositories and gives you one place to understand projects, remember how they run, coordinate related services, and inspect what is happening while a workspace is alive.
 
+## Download
+
+The current public release is **v1.0.0** for Windows:
+
+- [Download Switchyard.exe](https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe)
+- [Download SHA-256 checksum](https://github.com/purysho/Switchyard/releases/download/v1.0.0/Switchyard.exe.sha256)
+
+The executable is portable and does not require an installer. It is currently **not Authenticode-signed**, so Windows SmartScreen may show a reputation warning on first launch. Verify the SHA-256 checksum before running the file if you want an independent integrity check.
+
+
 ## What it does now
 
 ### Workspace intelligence
@@ -179,7 +189,7 @@ See [SECURITY.md](SECURITY.md) for security reporting and [docs/ARCHITECTURE.md]
 
 The V1 release candidate is gated by destructive-state recovery, process-tree shutdown, bounded restart behavior, occupied-port fail-closed checks, concurrent-write safety, first-run smoke tests, full-module compilation, repeated cross-platform soak runs, and packaged executable verification after artifact re-download.
 
-See [docs/V1_RELEASE_CHECKLIST.md](docs/V1_RELEASE_CHECKLIST.md) for the final automated and manual release gates. Longer-term work remains tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
+See [docs/V1_RELEASE_CHECKLIST.md](docs/V1_RELEASE_CHECKLIST.md) for the final automated and manual release gates. Post-release observation and the v1.0.1 patch gate are tracked in [POST_V1_OBSERVATION.md](POST_V1_OBSERVATION.md); longer-term capability work remains in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License
 
