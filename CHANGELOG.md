@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1 — 2026-09-20
+
+### Patch
+
+- Fixed relative custom working directories so they resolve from the registered project root rather than Switchyard's own launch directory.
+- Added blocking Preflight validation for unavailable custom service working directories, so the problem is reported before startup instead of failing during process creation.
+- Added regression tests for relative working-directory execution and missing-directory preflight.
+- Added post-v1 observation automation that exercises failure diagnostics and a synthetic 2,003-file workspace-intelligence baseline on Windows and Ubuntu.
+- Added verification of the exact public v1.0.0 Windows executable against its published checksum, known SHA-256 digest, size, and packaged smoke probe.
+- Updated README release/download guidance and aligned the roadmap with functionality already shipped in v1.0.0.
+
 ## 1.0.0 — 2026-09-17
 
 ### V1 hardening + release QA
