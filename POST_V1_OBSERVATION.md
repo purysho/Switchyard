@@ -19,6 +19,21 @@ Switchyard v1.0.0 is released. This document separates post-release observation 
 
 The `Post-v1 observation` workflow downloads the current public release assets, verifies the checksum file and known release digest, then runs the packaged `--smoke-test` probe.
 
+## Latest automated observation
+
+The verified v1.0.1 observation run passed on Windows and Ubuntu.
+
+Synthetic workspace baseline:
+
+| Runner | Files scanned | Ignored files | Snapshot | Stack/task detection |
+| --- | ---: | ---: | ---: | ---: |
+| Ubuntu / Python 3.12.14 | 2,003 | 200 | 0.0168 s | 0.0006 s |
+| Windows / Python 3.12.10 | 2,003 | 200 | 0.0658 s | 0.0014 s |
+
+These hosted-runner measurements are observation data, not performance thresholds. No material workspace-intelligence bottleneck was reproduced in this probe.
+
+All focused failure probes passed: missing project, occupied readiness port, missing inherited environment variable, malformed readiness configuration, missing executable cleanup, and unavailable custom working directory.
+
 ## Observation focus
 
 Treat v1.0.0 as a real user would and record only concrete defects/regressions:
