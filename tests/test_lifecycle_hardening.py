@@ -119,6 +119,49 @@ class LifecycleHardeningTests(unittest.TestCase):
             finally:
                 controller.stop()
 
+    def test_relative_working_directory_resolves_from_project_root(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            work = root / 'frontend'
+            work.mkdir()
+            observed = root / 'cwd.txt'
+            script = root / 'write_cwd.py'
+            script.write_text(
+                'from pathlib import Path\nimport sys\nPath(sys.argv[1]).write_text(str(Path.cwd()), encoding="utf-8")\n',
+                encoding='utf-8',
+            )
+            project = new_project(root, 'Relative cwd')
+            managed = ManagedProcess(
+                RunConfig('cwd', 'Relative cwd', f'"{sys.executable}" "{script}" "{observed}"', cwd='frontend'),
+                project,
+            )
+            managed.start()
+            self.assertTrue(wait_until(lambda: managed.returncode is not None, timeout=4))
+            self.assertEqual(managed.returncode, 0)
+            self.assertEqual(Path(observed.read_text(encoding='utf-8')).resolve(), work.resolve())
+
+    def test_missing_working_directory_is_blocked_by_preflight(self):
+        with tempfile.TemporaryDirectory() as d:
+            project = new_project(d, 'Broken cwd')
+            service = Service(
+                'svc',
+                project.id,
+                'Worker',
+                f'"{sys.executable}" -c "print(1)"',
+                cwd='does-not-exist',
+            )
+            session = WorkspaceSession('session', 'Broken cwd', ['svc'])
+            state = WorkspaceState([project], project.id, services=[service], sessions=[session])
+            checks = session_preflight(state, session, RuntimeSettings())
+
+            self.assertFalse(preflight_ok(checks))
+            self.assertTrue(any(
+                check.name == 'Working directory'
+                and check.level == 'ERROR'
+                and 'does-not-exist' in check.detail
+                for check in checks
+            ))
+
     def test_missing_executable_fails_cleanly_without_lingering_process(self):
         with tempfile.TemporaryDirectory() as d:
             project = new_project(d, 'Missing executable')
