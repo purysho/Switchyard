@@ -26,6 +26,7 @@ from switchyard_core import (
     check_port,
     command_available,
     readiness_description,
+    resolve_working_directory,
     service_dependents,
     service_project,
     topological_service_order,
@@ -220,6 +221,22 @@ def session_preflight(state: WorkspaceState, session: WorkspaceSession, settings
             checks.append(PreflightCheck('ERROR', 'Project', f'{service.name}: project folder is unavailable', service.id))
         else:
             checks.append(PreflightCheck('PASS', 'Project', f'{service.name}: {project.name}', service.id))
+            if service.cwd:
+                working_dir = resolve_working_directory(project, service.cwd)
+                if not working_dir.is_dir():
+                    checks.append(PreflightCheck(
+                        'ERROR',
+                        'Working directory',
+                        f'{service.name}: {working_dir} is unavailable',
+                        service.id,
+                    ))
+                else:
+                    checks.append(PreflightCheck(
+                        'PASS',
+                        'Working directory',
+                        f'{service.name}: {working_dir}',
+                        service.id,
+                    ))
         if not command_available(service.command):
             checks.append(PreflightCheck('WARN', 'Command', f'{service.name}: executable could not be resolved on PATH', service.id))
         profile = profile_for_service(settings, session, service.id)

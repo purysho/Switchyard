@@ -230,6 +230,21 @@ def new_session(name: str, service_ids: Iterable[str]) -> WorkspaceSession:
     return WorkspaceSession(uuid.uuid4().hex, name, list(service_ids))
 
 
+def resolve_working_directory(project: Project, cwd: str | None = None) -> Path:
+    """Resolve a configured working directory from the project root.
+
+    Absolute paths are preserved. Relative paths are intentionally project-relative
+    so saved configurations do not depend on the directory Switchyard itself was
+    launched from.
+    """
+    if not cwd:
+        return Path(project.path).expanduser().resolve()
+    candidate = Path(cwd).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path(project.path) / candidate
+    return candidate.resolve()
+
+
 def _git(project_path: Path, *args: str, timeout: float = 3.0) -> str:
     result = subprocess.run(
         ['git', '-C', str(project_path), *args],
@@ -576,7 +591,7 @@ class ManagedProcess:
     def start(self, on_line: Callable[[str], None] | None = None, on_exit: Callable[[int], None] | None = None) -> int:
         if self.process and self.process.poll() is None:
             raise RuntimeError('Process already running')
-        cwd = self.config.cwd or self.project.path
+        cwd = str(resolve_working_directory(self.project, self.config.cwd))
         env = os.environ.copy()
         env.update(self.config.env)
         group_args = {}
