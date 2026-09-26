@@ -109,7 +109,9 @@ class SwitchyardDailyApp(SwitchyardPhase6App):
         self.attention_list=tk.Listbox(right,bg=PANEL,fg=TEXT,selectbackground='#26384a',highlightthickness=0,borderwidth=0,font=('Segoe UI',10),activestyle='none');self.attention_list.pack(fill='both',expand=True)
         tk.Label(right,text='QUICK ACTIONS',bg=BG,fg=GOLD,font=('Segoe UI Semibold',9)).pack(anchor='w',pady=(12,5))
         quick=tk.Frame(right,bg=BG);quick.pack(fill='x')
-        for text,command in [('Topology',lambda:self._select_tab('Topology')),('Logs',lambda:self._select_tab('Service logs')),('Runtime',lambda:self._select_tab('Runtime')),('Ecosystem',lambda:self._select_tab('Ecosystem'))]:ttk.Button(quick,text=text,command=command).pack(side='left',padx=(0,6))
+        # Two by two, so the last action is not clipped when the column is narrow.
+        for i,(text,command) in enumerate([('Topology',lambda:self._select_tab('Topology')),('Logs',lambda:self._select_tab('Service logs')),('Runtime',lambda:self._select_tab('Runtime')),('Ecosystem',lambda:self._select_tab('Ecosystem'))]):ttk.Button(quick,text=text,command=command).grid(row=i//2,column=i%2,sticky='ew',padx=(0,6) if i%2==0 else 0,pady=(0,6))
+        quick.columnconfigure(0,weight=1,uniform='quick');quick.columnconfigure(1,weight=1,uniform='quick')
 
     def _collect_dashboard_statuses(self):
         sessions={};services={}

@@ -139,7 +139,7 @@ class SwitchyardApp(tk.Tk):
         s.configure('Accent.TButton', background='#6f5624', foreground='#fff7dc', padding=9); s.map('Accent.TButton', background=[('active', '#8b6b2c')])
         s.configure('Danger.TButton', background='#55262a', foreground='#ffe7e5', padding=8); s.map('Danger.TButton', background=[('active', '#74333a')])
         s.configure('Treeview', background=PANEL, fieldbackground=PANEL, foreground=TEXT, rowheight=29, borderwidth=0); s.map('Treeview', background=[('selected', '#26384a')])
-        s.configure('Treeview.Heading', background=PANEL2, foreground=TEXT, relief='flat'); s.configure('TNotebook', background=BG, borderwidth=0); s.configure('TNotebook.Tab', background=PANEL, foreground=MUTED, padding=(13, 8)); s.map('TNotebook.Tab', background=[('selected', PANEL2)], foreground=[('selected', TEXT)])
+        s.configure('Treeview.Heading', background=PANEL2, foreground=TEXT, relief='flat'); s.configure('TNotebook', background=BG, borderwidth=0); s.configure('TNotebook.Tab', background=PANEL, foreground=MUTED, padding=(12, 8), font=('Segoe UI', 9)); s.map('TNotebook.Tab', background=[('selected', PANEL2)], foreground=[('selected', TEXT)])
 
     def _build(self):
         top = tk.Frame(self, bg=BG); top.pack(fill='x', padx=18, pady=(14, 8)); tk.Label(top, text='SWITCHYARD', bg=BG, fg=TEXT, font=('Segoe UI Semibold', 26)).pack(side='left'); tk.Label(top, text='  workspace intelligence + service orchestration', bg=BG, fg=MUTED).pack(side='left', pady=(10, 0)); ttk.Button(top, text='+ Add project', style='Accent.TButton', command=self.add_project).pack(side='right')
@@ -203,12 +203,14 @@ class SwitchyardApp(tk.Tk):
     def current(self):
         selection=self.project_list.curselection()
         if not selection:return None
-        project_id=self.project_list.get(selection[0]).split('::',1)[0];return next((p for p in self.state.projects if p.id==project_id),None)
+        ids=getattr(self,'_project_list_ids',[])
+        if selection[0]>=len(ids):return None
+        project_id=ids[selection[0]];return next((p for p in self.state.projects if p.id==project_id),None)
     def _ordered_projects(self):return sorted(self.state.projects,key=lambda p:(not p.pinned,-(p.last_opened or 0),p.name.lower()))
     def refresh_projects(self,select=None):
-        self.project_list.delete(0,'end');ordered=self._ordered_projects();target=select or self.state.selected_project;target_index=None
+        self.project_list.delete(0,'end');self._project_list_ids=[];ordered=self._ordered_projects();target=select or self.state.selected_project;target_index=None
         for i,p in enumerate(ordered):
-            marker='★ ' if p.pinned else '';tags=f"  [{', '.join(p.tags)}]" if p.tags else '';self.project_list.insert('end',f'{p.id}::{marker}{p.name}{tags}');target_index=i if p.id==target else target_index
+            marker='★ ' if p.pinned else '';tags=f"  [{', '.join(p.tags)}]" if p.tags else '';self.project_list.insert('end',f'{marker}{p.name}{tags}');self._project_list_ids.append(p.id);target_index=i if p.id==target else target_index
         self.project_count.config(text=str(len(ordered)))
         if ordered:
             idx=target_index if target_index is not None else 0;self.project_list.selection_set(idx);self.project_list.see(idx);self.project_list.event_generate('<<ListboxSelect>>')
