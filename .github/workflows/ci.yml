@@ -76,3 +76,34 @@ jobs:
           Write-Host "Downloaded candidate verified: $($item.Length) bytes, SHA256 $actual"
           $p = Start-Process -FilePath $exe -ArgumentList '--smoke-test' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Downloaded candidate smoke test failed with exit code $($p.ExitCode)" }
+  unix-build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS-arm64
+          - os: ubuntu-22.04
+            platform: Linux-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Build and smoke-test package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip pyinstaller pillow
+          python tools/make_icon.py
+          mkdir -p out
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            python -m PyInstaller --noconfirm --clean --windowed --name Switchyard --icon assets/icon.ico switchyard_desktop.pyw
+            dist/Switchyard.app/Contents/MacOS/Switchyard --smoke-test
+            ditto -c -k --keepParent dist/Switchyard.app "out/Switchyard-${{ matrix.platform }}.zip"
+          else
+            python -m PyInstaller --noconfirm --clean --onefile --windowed --name Switchyard switchyard_desktop.pyw
+            dist/Switchyard --smoke-test
+            tar -C dist -czf "out/Switchyard-${{ matrix.platform }}.tar.gz" Switchyard
+          fi
+          cd out && for f in *; do shasum -a 256 "$f" > "$f.sha256"; done && cat *.sha256
+

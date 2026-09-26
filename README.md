@@ -2,19 +2,23 @@
 
 > A local-first developer workspace control plane: understand projects, orchestrate services, check readiness, and keep a development environment healthy from one desktop app.
 
-![Switchyard interface preview](docs/interface-preview.svg)
+[![Release](https://img.shields.io/github/v/release/purysho/Switchyard?display_name=tag&sort=semver)](https://github.com/purysho/Switchyard/releases/latest) [![CI](https://github.com/purysho/Switchyard/actions/workflows/ci.yml/badge.svg)](https://github.com/purysho/Switchyard/actions/workflows/ci.yml) ![Status: stable](https://img.shields.io/badge/status-stable-3FB27F.svg) [![MIT](https://img.shields.io/badge/license-MIT-202832.svg)](LICENSE)
+
+![Switchyard's workspace dashboard with four projects and a running three-service session](docs/screenshot.png)
 
 Switchyard is the flagship Purysho desktop tool. It sits above individual repositories and gives you one place to understand projects, remember how they run, coordinate related services, and inspect what is happening while a workspace is alive.
 
 ## Download
 
-The current public release is **v1.0.1** for Windows:
+The current release is **v1.1.0**:
 
-- [Download Switchyard.exe](https://github.com/purysho/Switchyard/releases/download/v1.0.1/Switchyard.exe)
-- [Download SHA-256 checksum](https://github.com/purysho/Switchyard/releases/download/v1.0.1/Switchyard.exe.sha256)
+| Platform | Download | Checksum |
+|---|---|---|
+| Windows 10/11 (x64) | [Switchyard.exe](https://github.com/purysho/Switchyard/releases/download/v1.1.0/Switchyard.exe) — portable, no installer | [SHA-256](https://github.com/purysho/Switchyard/releases/download/v1.1.0/Switchyard.exe.sha256) |
+| macOS (Apple Silicon) | [Switchyard-macOS-arm64.zip](https://github.com/purysho/Switchyard/releases/download/v1.1.0/Switchyard-macOS-arm64.zip) | [SHA-256](https://github.com/purysho/Switchyard/releases/download/v1.1.0/Switchyard-macOS-arm64.zip.sha256) |
+| Linux (x86_64) | [Switchyard-Linux-x86_64.tar.gz](https://github.com/purysho/Switchyard/releases/download/v1.1.0/Switchyard-Linux-x86_64.tar.gz) | [SHA-256](https://github.com/purysho/Switchyard/releases/download/v1.1.0/Switchyard-Linux-x86_64.tar.gz.sha256) |
 
-The executable is portable and does not require an installer. It is currently **not Authenticode-signed**, so Windows SmartScreen may show a reputation warning on first launch. Verify the SHA-256 checksum before running the file if you want an independent integrity check.
-
+Every package is smoke-tested after it is built. None is code-signed yet, so Windows SmartScreen may show a reputation warning on first launch, and macOS may need you to Control-click the app and choose **Open**. Verify the SHA-256 checksum if you want an independent integrity check.
 
 ## What it does now
 

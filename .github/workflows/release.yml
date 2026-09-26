@@ -5,7 +5,45 @@ on:
     branches: ['release-v*']
 permissions: { contents: write }
 jobs:
+  unix:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS-arm64
+          - os: ubuntu-22.04
+            platform: Linux-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ startsWith(github.ref, 'refs/heads/release-v') && 'main' || github.ref }}
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Build and smoke-test package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip pyinstaller pillow
+          python tools/make_icon.py
+          mkdir -p out
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            python -m PyInstaller --noconfirm --clean --windowed --name Switchyard --icon assets/icon.ico switchyard_desktop.pyw
+            dist/Switchyard.app/Contents/MacOS/Switchyard --smoke-test
+            ditto -c -k --keepParent dist/Switchyard.app "out/Switchyard-${{ matrix.platform }}.zip"
+          else
+            python -m PyInstaller --noconfirm --clean --onefile --windowed --name Switchyard switchyard_desktop.pyw
+            dist/Switchyard --smoke-test
+            tar -C dist -czf "out/Switchyard-${{ matrix.platform }}.tar.gz" Switchyard
+          fi
+          cd out && for f in *; do shasum -a 256 "$f" > "$f.sha256"; done && cat *.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Switchyard-${{ matrix.platform }}
+          path: out/*
+          if-no-files-found: error
   release:
+    needs: unix
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,12 +81,20 @@ jobs:
           $h = (Get-FileHash dist\Switchyard.exe -Algorithm SHA256).Hash.ToLower()
           "$h  Switchyard.exe" | Out-File -Encoding ascii dist\Switchyard.exe.sha256
           Write-Host "Switchyard.exe SHA256 $h"
+      - name: Download macOS and Linux packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Switchyard-*
+          path: unix
+          merge-multiple: true
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = $env:RELEASE_TAG
+          $unixAssets = @(Get-ChildItem unix -File | ForEach-Object { $_.FullName })
+          if ($unixAssets.Count -ne 4) { throw "Expected 4 macOS/Linux release files, found $($unixAssets.Count)" }
           $headers = @{
             Authorization = "Bearer $env:GH_TOKEN"
             Accept = "application/vnd.github+json"
@@ -59,11 +105,11 @@ jobs:
 
           if ($response.StatusCode -eq 200) {
             Write-Host "Release $tag already exists; replacing assets."
-            gh release upload "$tag" dist\Switchyard.exe dist\Switchyard.exe.sha256 --clobber --repo "${{ github.repository }}"
+            gh release upload "$tag" dist\Switchyard.exe dist\Switchyard.exe.sha256 @unixAssets --clobber --repo "${{ github.repository }}"
             if ($LASTEXITCODE -ne 0) { throw "gh release upload failed with exit code $LASTEXITCODE" }
           } elseif ($response.StatusCode -eq 404) {
             Write-Host "Release $tag does not exist; creating it."
-            gh release create "$tag" dist\Switchyard.exe dist\Switchyard.exe.sha256 --repo "${{ github.repository }}" --target main --title "Switchyard $tag" --generate-notes
+            gh release create "$tag" dist\Switchyard.exe dist\Switchyard.exe.sha256 @unixAssets --repo "${{ github.repository }}" --target main --title "Switchyard $tag" --generate-notes
             if ($LASTEXITCODE -ne 0) { throw "gh release create failed with exit code $LASTEXITCODE" }
           } else {
             throw "Unexpected GitHub API response while checking release ${tag}: HTTP $($response.StatusCode)"

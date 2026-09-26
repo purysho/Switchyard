@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.0 — 2026-09-26
+
+### Added
+
+- Release packages for macOS (Apple Silicon) and Linux (x86_64) alongside the Windows executable. Each is smoke-tested in CI after packaging and published with its own SHA-256 checksum.
+- CI builds and smoke-tests the macOS and Linux packages on every push.
+
+### Fixed
+
+- The Projects sidebar showed each project's internal ID instead of its name. It now shows the name, with the pin marker and tags.
+- Tab labels were clipped on platforms whose default UI font is wider than Segoe UI; tabs now use Segoe UI 9 explicitly (unchanged on Windows) with slightly tighter padding.
+- The dashboard's last quick action was clipped at the default window size; the four actions now sit in a two-by-two grid.
+
 ## 1.0.1 — 2026-09-20
 
 ### Patch
