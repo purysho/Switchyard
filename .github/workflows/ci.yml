@@ -99,10 +99,12 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ]; then
             python -m PyInstaller --noconfirm --clean --windowed --name Switchyard --icon assets/icon.ico switchyard_desktop.pyw
             dist/Switchyard.app/Contents/MacOS/Switchyard --smoke-test
+            .github/scripts/launch-check.sh dist/Switchyard.app/Contents/MacOS/Switchyard
             ditto -c -k --keepParent dist/Switchyard.app "out/Switchyard-${{ matrix.platform }}.zip"
           else
             python -m PyInstaller --noconfirm --clean --onefile --windowed --name Switchyard switchyard_desktop.pyw
             dist/Switchyard --smoke-test
+            .github/scripts/launch-check.sh dist/Switchyard
             tar -C dist -czf "out/Switchyard-${{ matrix.platform }}.tar.gz" Switchyard
           fi
           cd out && for f in *; do shasum -a 256 "$f" > "$f.sha256"; done && cat *.sha256
