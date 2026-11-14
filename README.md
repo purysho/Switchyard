@@ -138,6 +138,19 @@ It is intentionally local-first:
 - project files are never uploaded by Switchyard
 - inherited secret values are not persisted by Switchyard
 
+## Part of the Depot suite
+
+Depot (in development) brings these tools together in one app — shared workspace
+context, an event bus that connects them, and a unified session timeline.
+
+[Depot](https://github.com/purysho/Depot) ·
+[Switchyard](https://github.com/purysho/Switchyard) ·
+[Needle](https://github.com/purysho/Needle) ·
+[Relay](https://github.com/purysho/Relay) ·
+[Pulse](https://github.com/purysho/Pulse) ·
+[BLACKBOX](https://github.com/purysho/BLACKBOX) ·
+[Forge](https://github.com/purysho/Forge)
+
 ## First run
 
 Switchyard does not require setup, sign-in, a server, or a pre-existing state file. Launch it, add a local project, then optionally save run configurations and promote commands into services/workspace sessions. State is created locally under `~/.switchyard` only when there is something to persist.
