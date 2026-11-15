@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Stopping a session while it was starting a service could miss that service: stop could run between the start worker's last cancellation check and the launch, and return with the service still running. Launching and stopping now take the same lock, so stop sees every process that was started and none can start after it.
 - Services no longer inherit Switchyard's standard input. A service that
   read stdin could take input meant for Switchyard (or for Depot, which drives
   Switchyard over stdin); services now get an empty stdin.

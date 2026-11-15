@@ -310,16 +310,19 @@ class ResilientSessionController(SessionController):
         if missing:
             return False, f'missing environment variable(s): {", ".join(missing)}'
         config = RunConfig(service.id, service.name, service.command, service.cwd, env)
-        managed = ManagedProcess(config, project)
-        with self._runtime_lock:
-            self.processes[service.id] = managed
-        try:
-            pid = managed.start(
-                lambda line, s=service: self.on_line(s, line) if self.on_line else None,
-                lambda rc, s=service: self._process_exit(s, rc),
-            )
-        except Exception as exc:
-            return False, str(exc)
+        with self._spawn_lock:  # see SessionController._spawn_lock
+            if self._cancel.is_set():
+                return False, 'start cancelled'
+            managed = ManagedProcess(config, project)
+            with self._runtime_lock:
+                self.processes[service.id] = managed
+            try:
+                pid = managed.start(
+                    lambda line, s=service: self.on_line(s, line) if self.on_line else None,
+                    lambda rc, s=service: self._process_exit(s, rc),
+                )
+            except Exception as exc:
+                return False, str(exc)
         self._emit('service-start', f'{service.name} started · pid {pid}', service.id)
         ok, detail = wait_for_runtime_readiness(service, managed, cancel=self._cancel)
         if ok:

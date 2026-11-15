@@ -722,6 +722,10 @@ class SessionController:
         self._cancel = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock = threading.RLock()
+        # Held while a service is checked against cancellation and started, and
+        # by stop() after it sets cancellation: stop() then sees every process
+        # that was started, and none can start after it.
+        self._spawn_lock = threading.Lock()
         self.status = 'IDLE'
 
     def _emit(self, kind: str, message: str, service_id: str | None = None) -> None:
@@ -774,14 +778,23 @@ class SessionController:
                 self._emit('blocked', f'{service.name}: dependency failed', service.id)
                 continue
             config = RunConfig(service.id, service.name, service.command, service.cwd, dict(service.env))
-            managed = ManagedProcess(config, project)
-            self.processes[service.id] = managed
-            try:
-                pid = managed.start(
-                    lambda line, s=service: self.on_line(s, line) if self.on_line else None,
-                    lambda rc, s=service: self._process_exit(s, rc),
-                )
-            except Exception as exc:
+            error: Exception | None = None
+            with self._spawn_lock:
+                if self._cancel.is_set():
+                    self.status = 'STOPPED'
+                    self._emit('session-stop', 'Start cancelled')
+                    return
+                managed = ManagedProcess(config, project)
+                self.processes[service.id] = managed
+                try:
+                    pid = managed.start(
+                        lambda line, s=service: self.on_line(s, line) if self.on_line else None,
+                        lambda rc, s=service: self._process_exit(s, rc),
+                    )
+                except Exception as exc:  # handled below, outside the lock (stop() takes it)
+                    error = exc
+            if error is not None:
+                exc = error
                 self.failed.add(service.id)
                 self._emit('error', f'{service.name}: {exc}', service.id)
                 if service.failure_policy == 'stop_dependents':
@@ -828,6 +841,8 @@ class SessionController:
 
     def stop(self) -> None:
         self._cancel.set()
+        with self._spawn_lock:
+            pass  # wait for a start in progress to register its process
         try:
             order = topological_service_order(self.state.services, self.session.service_ids)
         except ValueError:

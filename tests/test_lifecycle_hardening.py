@@ -97,6 +97,57 @@ class LifecycleHardeningTests(unittest.TestCase):
             finally:
                 controller.stop()
 
+    def test_stop_during_a_service_launch_still_stops_that_service(self):
+        """stop() racing the start worker: the worker has passed its cancel
+        check and is launching a service when stop() runs. stop() must wait for
+        that launch and stop the service, not return with it still running."""
+        import switchyard_core_impl as impl
+        import switchyard_runtime_impl as rimpl
+        for controller_class in (impl.SessionController, ResilientSessionController):
+            with self.subTest(controller_class.__name__), tempfile.TemporaryDirectory() as d:
+                project = new_project(d, 'Race')
+                script = Path(d) / 'long.py'
+                script.write_text('import time\ntime.sleep(30)\n', encoding='utf-8')
+                # 'continue': the worker must not stop the service itself when
+                # its readiness check is cancelled, so only stop() can.
+                service = Service('svc', project.id, 'Worker', f'"{sys.executable}" "{script}"', readiness=ReadinessCheck('process', '', 1), failure_policy='continue')
+                session = WorkspaceSession('session', 'Race', ['svc'])
+                state = WorkspaceState([project], project.id, services=[service], sessions=[session])
+                if controller_class is ResilientSessionController:
+                    controller = controller_class(state, session, RuntimeSettings())
+                else:
+                    controller = controller_class(state, session)
+                launching, release = threading.Event(), threading.Event()
+                real_start = ManagedProcess.start
+
+                def slow_start(managed, *args, **kwargs):
+                    launching.set()
+                    release.wait(5)
+                    return real_start(managed, *args, **kwargs)
+
+                originals = (impl.ManagedProcess.start, rimpl.ManagedProcess.start)
+                impl.ManagedProcess.start = rimpl.ManagedProcess.start = slow_start
+                try:
+                    controller.start()
+                    self.assertTrue(launching.wait(5))
+                    stopper = threading.Thread(target=controller.stop)
+                    stopper.start()
+                    time.sleep(0.3)  # stop() is now waiting for the launch
+                    release.set()
+                    stopper.join(10)
+                    # Let the start worker finish whatever it was doing, then
+                    # look: the service must not be running.
+                    if controller._thread:
+                        controller._thread.join(10)
+                    time.sleep(0.5)
+                    running = [sid for sid, m in controller.processes.items() if m.running]
+                    self.assertEqual(running, [], 'a service launched during stop() was left running')
+                finally:
+                    impl.ManagedProcess.start, rimpl.ManagedProcess.start = originals
+                    release.set()
+                    for m in controller.processes.values():
+                        m.stop(grace=.2)
+
     def test_duplicate_start_is_rejected_without_disturbing_live_session(self):
         with tempfile.TemporaryDirectory() as d:
             project = new_project(d, 'Double start')
