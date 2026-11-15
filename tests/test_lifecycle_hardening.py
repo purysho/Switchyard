@@ -248,6 +248,21 @@ class LifecycleHardeningTests(unittest.TestCase):
                 if child_pid and pid_alive(child_pid):
                     terminate_pid_tree(child_pid, timeout=.5)
 
+    def test_a_service_does_not_inherit_switchyards_stdin(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            script = root / 'reader.py'
+            script.write_text('import sys\nprint("read:" + repr(sys.stdin.read()))\n', encoding='utf-8')
+            project = new_project(root, 'Stdin')
+            managed = ManagedProcess(RunConfig('reader', 'Reader', f'"{sys.executable}" "{script}"'), project)
+            managed.start()
+            try:
+                self.assertTrue(wait_until(lambda: not managed.running, timeout=10))
+                self.assertTrue(wait_until(lambda: any(l.startswith('read:') for l in managed.lines), timeout=5), managed.lines)
+                self.assertIn("read:''", managed.lines)
+            finally:
+                managed.stop(grace=.2)
+
     @unittest.skipIf(sys.platform == 'win32', 'POSIX signals; Windows stops trees with taskkill /T /F')
     def test_stop_kills_a_child_that_ignores_sigterm_after_its_shell_exits(self):
         """The shell dies on SIGTERM at once; the program it started ignores it.

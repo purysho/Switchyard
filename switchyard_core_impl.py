@@ -604,6 +604,9 @@ class ManagedProcess:
             cwd=cwd,
             env=env,
             shell=True,
+            # A service gets no stdin. Inheriting ours would let it read
+            # whatever drives Switchyard (Depot sends its requests on stdin).
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
