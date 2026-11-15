@@ -648,32 +648,57 @@ class ManagedProcess:
                     timeout=max(1.0, grace + 1.0),
                 )
             else:
-                os.killpg(os.getpgid(pid), signal.SIGTERM)
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGTERM)
         except Exception:
+            pgid = None
             try:
                 self.process.terminate()
             except Exception:
                 pass
+        deadline = time.monotonic() + grace
         try:
             self.process.wait(timeout=grace)
         except subprocess.TimeoutExpired:
+            pass
+        if os.name != 'nt' and pgid is not None:
+            # The process Switchyard started is usually a shell. It can exit on
+            # SIGTERM while a program it started ignores the signal, so wait for
+            # the whole group, not just the shell, before deciding it stopped.
+            while time.monotonic() < deadline and _group_alive(pgid):
+                time.sleep(0.05)
+            if _group_alive(pgid):
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except Exception:
+                    pass
+        elif self.process.poll() is None:
             try:
-                if os.name != 'nt':
-                    os.killpg(os.getpgid(pid), signal.SIGKILL)
-                else:
-                    self.process.kill()
+                self.process.kill()
             except Exception:
                 pass
-            try:
-                self.process.wait(timeout=1.0)
-            except Exception:
-                pass
+        try:
+            self.process.wait(timeout=1.0)
+        except Exception:
+            pass
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.0)
 
     @property
     def running(self) -> bool:
         return bool(self.process and self.process.poll() is None)
+
+
+def _group_alive(pgid: int) -> bool:
+    """Does any process remain in the group? (Unreaped zombies count; killing
+    them again is harmless.)"""
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 class SessionController:

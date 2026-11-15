@@ -248,6 +248,37 @@ class LifecycleHardeningTests(unittest.TestCase):
                 if child_pid and pid_alive(child_pid):
                     terminate_pid_tree(child_pid, timeout=.5)
 
+    @unittest.skipIf(sys.platform == 'win32', 'POSIX signals; Windows stops trees with taskkill /T /F')
+    def test_stop_kills_a_child_that_ignores_sigterm_after_its_shell_exits(self):
+        """The shell dies on SIGTERM at once; the program it started ignores it.
+        Waiting for the shell alone would report "stopped" and leave the program
+        running as an orphan."""
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            pid_file = root / 'stubborn.pid'
+            script = root / 'stubborn.py'
+            script.write_text(
+                'import os, signal, time\n'
+                'signal.signal(signal.SIGTERM, signal.SIG_IGN)\n'
+                f'open({str(pid_file)!r}, "w").write(str(os.getpid()))\n'
+                'time.sleep(30)\n',
+                encoding='utf-8',
+            )
+            project = new_project(root, 'Stubborn')
+            # `; true` keeps sh from exec-ing python, so python is the shell's child.
+            managed = ManagedProcess(RunConfig('s', 'Stubborn', f'"{sys.executable}" "{script}"; true'), project)
+            managed.start()
+            child_pid = None
+            try:
+                self.assertTrue(wait_until(pid_file.exists, timeout=4))
+                child_pid = int(pid_file.read_text(encoding='utf-8'))
+                time.sleep(0.2)  # let it install the SIGTERM handler
+                managed.stop(grace=.6)
+                self.assertTrue(wait_until(lambda: not pid_alive(child_pid), timeout=3))
+            finally:
+                if child_pid and pid_alive(child_pid):
+                    terminate_pid_tree(child_pid, timeout=.5)
+
 
 if __name__ == '__main__':
     unittest.main()

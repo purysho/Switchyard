@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Stopping a service could leave its program running. Services run through a shell; when the shell exited on SIGTERM but the program it started ignored the signal, Switchyard saw the shell gone, reported the service stopped, and never sent SIGKILL. Stop now waits for the service's whole process group for the grace period, then kills whatever remains (macOS and Linux; Windows already stops the whole tree with `taskkill /T /F`).
+
 ## 1.1.0 — 2026-09-26
 
 ### Added
